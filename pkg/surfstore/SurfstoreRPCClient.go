@@ -181,7 +181,7 @@ func (surfClient *RPCClient) HasBlocks(blockHashesIn []string, blockStoreAddr st
 	var blockHashes BlockHashes
 	blockHashes.Hashes = blockHashesIn
 	returnedBlockHashes, err := c.HasBlocks(ctx, &blockHashes)
-	blockHashesOut = &returnedBlockHashes.Hashes
+	*blockHashesOut = returnedBlockHashes.Hashes
 
 	if err != nil {
 		conn.Close()
@@ -251,7 +251,7 @@ func (surfClient *RPCClient) UpdateFile(fileMetaData *FileMetaData, latestVersio
 				return ERR_SERVER_CRASHED
 			}
 		} else {
-			latestVersion = &version.Version
+			*latestVersion = version.Version
 			return conn.Close()
 		}
 	}
