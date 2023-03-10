@@ -1,9 +1,11 @@
 package SurfTest
 
 import (
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	"fmt"
 	"os"
 	"testing"
+
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	//	"time"
 )
 
@@ -13,8 +15,10 @@ func TestSyncTwoClientsSameFileLeaderFailure(t *testing.T) {
 	cfgPath := "./config_files/3nodes.txt"
 	test := InitTest(cfgPath)
 	defer EndTest(test)
+	fmt.Printf("Set leader to server 0\n")
 	test.Clients[0].SetLeader(test.Context, &emptypb.Empty{})
 	test.Clients[0].SendHeartbeat(test.Context, &emptypb.Empty{})
+	fmt.Printf("End heartbeat\n")
 
 	worker1 := InitDirectoryWorker("test0", SRC_PATH)
 	worker2 := InitDirectoryWorker("test1", SRC_PATH)
@@ -38,33 +42,50 @@ func TestSyncTwoClientsSameFileLeaderFailure(t *testing.T) {
 	}
 
 	//client1 syncs
+	//fmt.Printf("Start Sync\n")
 	err = SyncClient("localhost:8080", "test0", BLOCK_SIZE, cfgPath)
 	if err != nil {
 		t.Fatalf("Sync failed")
 	}
+	//fmt.Printf("End Sync\n")
 
+	//fmt.Printf("Start heartbeat\n")
 	test.Clients[0].SendHeartbeat(test.Context, &emptypb.Empty{})
-
+	//fmt.Printf("End heartbeat\n")
+	//fmt.Printf("Crash server 0\n")
 	test.Clients[0].Crash(test.Context, &emptypb.Empty{})
 	test.Clients[1].SetLeader(test.Context, &emptypb.Empty{})
+
+	//fmt.Printf("Start heartbeat\n")
 	test.Clients[1].SendHeartbeat(test.Context, &emptypb.Empty{})
+	//fmt.Printf("End heartbeat\n")
 
 	//client2 syncs
+	//fmt.Printf("Start Sync\n")
 	err = SyncClient("localhost:8080", "test1", BLOCK_SIZE, cfgPath)
 	if err != nil {
-		t.Fatalf("Sync failed")
+		t.Fatalf("Sync failed: %s\n", err.Error())
 	}
+	//fmt.Printf("End Sync\n")
 
+	//fmt.Printf("Start heartbeat\n")
 	test.Clients[1].SendHeartbeat(test.Context, &emptypb.Empty{})
+	//fmt.Printf("End heartbeat\n")
 
 	//client1 syncs
+	//fmt.Printf("Start Sync\n")
 	err = SyncClient("localhost:8080", "test0", BLOCK_SIZE, cfgPath)
 	if err != nil {
 		t.Fatalf("Sync failed")
 	}
+	//fmt.Printf("End Sync\n")
 
+	//fmt.Printf("Start heartbeat\n")
 	test.Clients[1].SendHeartbeat(test.Context, &emptypb.Empty{})
+	//fmt.Printf("End heartbeat\n")
+	//fmt.Printf("Start heartbeat\n")
 	test.Clients[1].SendHeartbeat(test.Context, &emptypb.Empty{})
+	//fmt.Printf("End heartbeat\n")
 
 	workingDir, _ := os.Getwd()
 
