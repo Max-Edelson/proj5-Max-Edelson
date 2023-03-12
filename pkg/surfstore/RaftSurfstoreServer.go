@@ -114,7 +114,7 @@ func (s *RaftSurfstore) GetBlockStoreAddrs(ctx context.Context, empty *emptypb.E
 
 func print_state(s *RaftSurfstore) {
 	fmt.Printf("id: %d, isLeader: %t, term: %d, log len: %d,\n raftAddrs len: %d, blockAddrs len: %d, commit index: %d, last applied idx: %d,\nnext index: %v, match index: %v\n", s.id, s.isLeader, s.term, len(s.log), len(s.raftAddrs), len(s.blockAddrs), s.commitIndex, s.lastApplied, s.nextIndex, s.matchIndex)
-	meta, exist := s.metaStore.FileMetaMap["testFile1"]
+	meta, exist := s.metaStore.FileMetaMap["multi_file1.txt"]
 
 	if !exist {
 		fmt.Printf("id: %d. exist: %t\n", s.id, exist)
@@ -256,11 +256,12 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 		if !s.isCrashed { // Apply commits
 			for {
 				if s.commitIndex > s.lastApplied || (s.commitIndex == 0 && s.lastApplied == 0 && len(s.log) == 1) { //|| (len(s.log) == 1 && s.commitIndex == 0 && first_iter) {
-					if s.lastApplied > 0 {
-						s.lastApplied++
+					if s.lastApplied > 0 || s.commitIndex > 0 {
+						s.lastApplied = s.lastApplied + 1
 					}
-					//fmt.Printf("%d. Applied commit to log. s.commitIndex: %d. s.lastApplied: %d. len(s.log): %d\n", s.id, s.lastApplied, s.commitIndex, len(s.log))
+					fmt.Printf("%d. Applied commit to log. s.commitIndex: %d. s.lastApplied: %d. len(s.log): %d\n", s.id, s.commitIndex, s.lastApplied, len(s.log))
 					filemeta := s.log[s.lastApplied].FileMetaData
+					fmt.Printf("%d. Log commit (%d) meta: %v\n", s.id, s.lastApplied, filemeta)
 					s.metaStore.FileMetaMap[filemeta.Filename] = filemeta
 
 					if s.lastApplied == 0 {
