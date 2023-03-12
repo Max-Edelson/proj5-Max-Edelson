@@ -114,6 +114,14 @@ func (s *RaftSurfstore) GetBlockStoreAddrs(ctx context.Context, empty *emptypb.E
 
 func print_state(s *RaftSurfstore) {
 	fmt.Printf("id: %d, isLeader: %t, term: %d, log len: %d,\n raftAddrs len: %d, blockAddrs len: %d, commit index: %d, last applied idx: %d,\nnext index: %v, match index: %v\n", s.id, s.isLeader, s.term, len(s.log), len(s.raftAddrs), len(s.blockAddrs), s.commitIndex, s.lastApplied, s.nextIndex, s.matchIndex)
+	meta, exist := s.metaStore.FileMetaMap["multi_file1.txt"]
+
+	if !exist {
+		fmt.Printf("id: %d. exist: %t\n", s.id, exist)
+	} else {
+		fmt.Printf("id: %d. exist: %t. meta: %v\n", s.id, exist, meta)
+	}
+	fmt.Printf("\n")
 }
 
 func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) (*Version, error) {
@@ -131,23 +139,27 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 				s.metaStore.FileMetaMap = make(map[string]*FileMetaData)
 			}
 
+			//fmt.Printf("%d. RaftServer UpdateFile() finished heartbeat\n", s.id)
+
 			var version = Version{Version: -1}
 
 			// check for hash existance
 			remoteFileInfo, remoteFileExist := s.metaStore.FileMetaMap[filemeta.Filename]
+			//fmt.Printf("%d. RaftServer UpdateFile() remoteFileExist: %t\n", s.id, remoteFileExist)
 
 			// valid update
 			if !remoteFileExist || (remoteFileExist && filemeta.Version == remoteFileInfo.Version+1) {
 				var updateOperation = UpdateOperation{Term: s.term, FileMetaData: filemeta}
 				s.log = append(s.log, &updateOperation) // apply to state machine
 				s.commitIndex = int64(len(s.log) - 1)
+				//fmt.Printf("%d. RaftServer UpdateFile() s.log.len: %d: \n", s.id, len(s.log))
 			} else { // invalid update
 				return &version, ctx.Err()
 			}
 
 			// issue 2-phase commit to followers
 			for {
-				appendSuccesses := 0
+				appendSuccesses := 1
 				for idx, raftServerIp := range s.raftAddrs {
 					if raftServerIp == s.raftAddrs[s.id] {
 						continue
@@ -165,6 +177,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 
 					prevLogIndex := s.lastApplied
 					prevLogTerm := s.log[s.lastApplied].Term
+					//fmt.Printf("%d. RaftServer UpdateFile() start 2-phase commit to %d.\n", s.id, idx)
 
 					//print_state(s)
 
@@ -173,11 +186,15 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 							Entries: s.log, LeaderCommit: s.commitIndex}
 
 						appendEntryResponse, err := c.AppendEntries(ctx, &appendEntryInput)
-						checkError(err)
+						if err != nil {
+							break
+						}
+						//checkError(err)
 						if appendEntryResponse.Success {
 							appendSuccesses++
 							s.matchIndex[idx] = appendEntryResponse.MatchedIndex
 							s.nextIndex[idx] = int64(len(s.log))
+							//fmt.Printf("%d. RaftServer UpdateFile() applied appendEntry to %d successfully\n", s.id, idx)
 							break
 						} else {
 							if prevLogIndex > 0 {
@@ -253,6 +270,7 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 				}
 			}
 		}
+		print_state(s)
 	} else if len(input.Entries) != 0 && !s.isCrashed {
 		if input.Term > s.term {
 			s.term = input.Term
@@ -318,6 +336,7 @@ func (s *RaftSurfstore) SetLeader(ctx context.Context, empty *emptypb.Empty) (*S
 }
 
 func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*Success, error) {
+	print_state(s)
 	var appendEntryInput = AppendEntryInput{Term: s.term, Entries: make([]*UpdateOperation, 0)}
 	respondedServers := 1 // automatically call self
 	flag := false

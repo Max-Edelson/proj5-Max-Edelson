@@ -219,17 +219,18 @@ func ClientSync(client RPCClient) {
 				remoteMissingHashes := getMissingHashesFromLocalAndRemote(localHashes, remoteMetaData, client, ctx) // hashes missing from remote
 				var blocksToUpload = make([]Block, 0)
 				getBlocksFromHashes(remoteMissingHashes, localBlocks, &blocksToUpload) // get blocks corresponding to hashes
+				//fmt.Printf("Upload blocks: %v\n", localHashes)
 				success = uploadBlocks(localHashes, blocksToUpload, &blockStoreMap, client, ctx)
 			}
 			if !success {
 				log.Fatal("Errored uploading blocks")
 			}
-			//			fmt.Printf("%s localMetadata.Version: %d\n", localFilename, localMetadata.Version)
+			//fmt.Printf("%s localMetadata.Version: %d\n", localFilename, localMetadata.Version)
 			localMetadata.Version += 1
 			returnVersion := localMetadata.Version
 			err = client.UpdateFile(localMetadata, &returnVersion)
 			//fmt.Printf("%s version num: %d\n", localFilename, localMetadata.Version)
-			checkError(err)
+			//fmt.Printf("Err: %s\n", err)
 			if returnVersion == -1 { // Someone uploaded newer version of this file. Handle conflict.
 				/*updatedRemoteMeta := */ handleNewerVersionOnServer(baseDirPath+localFilename, client.BlockSize, &blockStoreMap, client, ctx, *remoteMetaData, localFileMetaMap, localHashes, empty)
 				//indexFileMetaMap[localFilename] = &updatedRemoteMeta
@@ -240,7 +241,7 @@ func ClientSync(client RPCClient) {
 
 		//fmt.Printf("%v\n", localMetadata)
 	}
-	//	fmt.Printf("\nDone running through local and remote comparison\n")
+	//fmt.Printf("\nDone running through local and remote comparison\n")
 
 	// check for remote files not present on local system
 	for remoteFilename, remoteMetadata := range remoteFileMetaMap {
@@ -315,7 +316,7 @@ func uploadBlocks(hashes []string, blocks []Block, blockStoreMap *map[string]Blo
 
 	flag := true
 	for addr, blockHashes := range responsibleServers {
-		//	fmt.Printf("uploadBlocks[%d]: %s\n", idx, GetBlockHashString(block.BlockData))
+		//fmt.Printf("uploadBlocks[%d]: %s\n", idx, GetBlockHashString(block.BlockData))
 
 		blockStoreC := (*blockStoreMap)[addr]
 		for _, blockHash := range blockHashes {
