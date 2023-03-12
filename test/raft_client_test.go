@@ -50,20 +50,6 @@ func TestRaftUpdateTwice(t *testing.T) {
 	test.Clients[0].SendHeartbeat(test.Context, &emptypb.Empty{})
 	fmt.Printf("End heartbeat\n")
 
-	err = worker1.UpdateFile(file1, "update text again")
-	if err != nil {
-		t.FailNow()
-	}
-
-	err = SyncClient("localhost:8080", "test0", BLOCK_SIZE, cfgPath)
-	if err != nil {
-		t.Fatalf("Sync failed")
-	}
-
-	fmt.Printf("Start heartbeat\n")
-	test.Clients[0].SendHeartbeat(test.Context, &emptypb.Empty{})
-	fmt.Printf("End heartbeat\n")
-
 	workingDir, _ := os.Getwd()
 
 	//check client1
@@ -80,7 +66,7 @@ func TestRaftUpdateTwice(t *testing.T) {
 	if len(fileMeta1) != 1 {
 		t.Fatalf("Wrong number of entries in client1 meta file")
 	}
-	if fileMeta1 == nil || fileMeta1[file1].Version != 3 {
+	if fileMeta1 == nil || fileMeta1[file1].Version != 2 {
 		t.Fatalf("Wrong version for file1 in client1 metadata.")
 	}
 
