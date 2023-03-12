@@ -127,6 +127,7 @@ func print_state(s *RaftSurfstore) {
 func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) (*Version, error) {
 	if s.isLeader {
 		if !s.isCrashed {
+			fmt.Printf("%d. Recieved update meta: %v\n", s.id, filemeta)
 			var empty *emptypb.Empty
 			for { // loop until a majority of the servers are not crashed
 				succ, err := s.SendHeartbeat(ctx, empty)
