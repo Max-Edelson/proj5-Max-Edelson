@@ -36,15 +36,25 @@ type RaftSurfstore struct {
 }
 
 func (s *RaftSurfstore) GetFileInfoMap(ctx context.Context, empty *emptypb.Empty) (*FileInfoMap, error) {
+	fmt.Printf("%d. GetFileInfoMap\n", s.id)
+
 	if s.isLeader {
 		if !s.isCrashed {
-			for {
+			startWaiting := time.Now()
+			for { // loop until a majority of the servers are not crashed or time passes > 2s
+				fmt.Printf("%d. GetFileInfoMap loop\n", s.id)
 				succ, err := s.SendHeartbeat(ctx, empty)
 				checkError(err)
 				if succ.Flag {
+					fmt.Printf("SendHeartbeat successful flag\n")
 					break
 				}
-				// majority of servers are crashed
+				durationWaiting := time.Since(startWaiting)
+				fmt.Printf("%d. GetFileInfoMap duration: %f\n", s.id, durationWaiting.Seconds())
+				if durationWaiting.Seconds() > 0.2 { // double check
+					fmt.Printf("Waiting for more than 0.2 seconds. Quit GetFileInfoMap\n")
+					break
+				}
 			}
 			metaMap, err := s.metaStore.GetFileInfoMap(ctx, empty)
 			checkError(err)
@@ -61,13 +71,30 @@ func (s *RaftSurfstore) GetFileInfoMap(ctx context.Context, empty *emptypb.Empty
 }
 
 func (s *RaftSurfstore) GetBlockStoreMap(ctx context.Context, hashes *BlockHashes) (*BlockStoreMap, error) {
+	fmt.Printf("%d. GetBlockStoreMap\n", s.id)
+
 	if s.isLeader {
 		if !s.isCrashed {
 			var empty *emptypb.Empty
-			for {
+			/*for {
 				succ, err := s.SendHeartbeat(ctx, empty)
 				checkError(err)
 				if succ.Flag {
+					break
+				}
+			}*/
+
+			startWaiting := time.Now()
+			for { // loop until a majority of the servers are not crashed or time passes > 2s
+				succ, err := s.SendHeartbeat(ctx, empty)
+				checkError(err)
+				if succ.Flag {
+					fmt.Printf("SendHeartbeat successful flag\n")
+					break
+				}
+				durationWaiting := time.Since(startWaiting)
+				if durationWaiting.Seconds() > 0.2 { // double check
+					fmt.Printf("Waiting for more than 0.2 seconds. Quit GetBlockStoreMap\n")
 					break
 				}
 			}
@@ -94,12 +121,22 @@ func (s *RaftSurfstore) GetBlockStoreMap(ctx context.Context, hashes *BlockHashe
 }
 
 func (s *RaftSurfstore) GetBlockStoreAddrs(ctx context.Context, empty *emptypb.Empty) (*BlockStoreAddrs, error) {
+	fmt.Printf("%d. GetBlockStoreAddrs\n", s.id)
+
 	if s.isLeader {
 		if !s.isCrashed {
-			for {
+			startWaiting := time.Now()
+			for { // loop until a majority of the servers are not crashed or time passes > 2s
 				succ, err := s.SendHeartbeat(ctx, empty)
 				checkError(err)
 				if succ.Flag {
+					fmt.Printf("SendHeartbeat successful flag\n")
+					break
+				}
+				durationWaiting := time.Since(startWaiting)
+				fmt.Printf("%d. GetBlockStoreAddrs duration: %f\n", s.id, durationWaiting.Seconds())
+				if durationWaiting.Seconds() > 0.2 { // double check
+					fmt.Printf("Waiting for more than 0.2 seconds. Quit GetBlockStoreAddrs\n")
 					break
 				}
 			}
@@ -125,20 +162,10 @@ func print_state(s *RaftSurfstore) {
 }
 
 func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) (*Version, error) {
+	fmt.Printf("%d. UpdateFile\n", s.id)
 	if s.isLeader {
 		if !s.isCrashed {
 			fmt.Printf("%d. Recieved update meta: %v\n", s.id, filemeta)
-			var empty *emptypb.Empty
-			for { // loop until a majority of the servers are not crashed
-				succ, err := s.SendHeartbeat(ctx, empty)
-				checkError(err)
-				if succ.Flag {
-					break
-				}
-			}
-			if s.metaStore.FileMetaMap == nil {
-				s.metaStore.FileMetaMap = make(map[string]*FileMetaData)
-			}
 
 			//fmt.Printf("%d. RaftServer UpdateFile() finished heartbeat\n", s.id)
 
@@ -156,6 +183,26 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 				//fmt.Printf("%d. RaftServer UpdateFile() s.log.len: %d: \n", s.id, len(s.log))
 			} else { // invalid update
 				return &version, ctx.Err()
+			}
+
+			var empty *emptypb.Empty
+			startWaiting := time.Now()
+			for { // loop until a majority of the servers are not crashed or time passes > 2s
+				succ, err := s.SendHeartbeat(ctx, empty)
+				checkError(err)
+				if succ.Flag {
+					fmt.Printf("SendHeartbeat successful flag\n")
+					break
+				}
+				durationWaiting := time.Since(startWaiting)
+				fmt.Printf("%d. UpdateFile duration: %f\n", s.id, durationWaiting.Seconds())
+				if durationWaiting.Seconds() > 0.2 { // double check
+					fmt.Printf("Waiting for more than 0.2 seconds. Quit UpdateFile\n")
+					break
+				}
+			}
+			if s.metaStore.FileMetaMap == nil {
+				s.metaStore.FileMetaMap = make(map[string]*FileMetaData)
 			}
 
 			// issue 2-phase commit to followers
@@ -218,7 +265,10 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 					s.lastApplied = int64(len(s.log) - 1)
 					//s.SendHeartbeat(ctx, empty)
 					return &version, ctx.Err()
-				} // otherwise restart and try to get a majority again
+				} else { // Scratch that: quit. otherwise restart and try to get a majority again
+					version.Version = filemeta.Version
+					return &version, ctx.Err()
+				}
 			}
 		} else { // leader is crashed
 			return nil, ERR_SERVER_CRASHED
@@ -240,6 +290,7 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 
 	if s.isCrashed {
 		output.Success = false
+		fmt.Printf("%d is crashed\n", s.id)
 		//fmt.Printf("%d append entries false 1\n", s.id)
 		return &output, ERR_SERVER_CRASHED
 	}

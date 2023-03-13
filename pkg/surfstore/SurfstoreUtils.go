@@ -126,6 +126,7 @@ func ClientSync(client RPCClient) {
 	remoteFileMetaMap := make(map[string]*FileMetaData)
 	err = client.GetFileInfoMap(&remoteFileMetaMap)
 	checkError(err)
+	fmt.Printf("Done retrieving getFileInfoMap\n")
 	/*fmt.Printf("Done retrieving getFileInfoMap\n")
 	remoteFileMetaMap := *remoteFileInfoMap.FileInfoMap*/
 
@@ -145,7 +146,7 @@ func ClientSync(client RPCClient) {
 		blockStoreC := NewBlockStoreClient(blockStoreConn)
 		blockStoreMap[addr] = blockStoreC
 	}
-	//fmt.Printf("Done getting BlockStoreClients\n")
+	fmt.Printf("Done getting BlockStoreClients\n")
 
 	// fmt.Printf("\n")
 	for localFilename, localMetadata := range localFileMetaMap {
