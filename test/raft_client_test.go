@@ -90,17 +90,20 @@ func TestRaftLogsConsistent(t *testing.T) {
 	fmt.Printf("End heartbeat\n")
 
 	worker1 := InitDirectoryWorker("test0", SRC_PATH)
+	worker2 := InitDirectoryWorker("test1", SRC_PATH)
 	defer worker1.CleanUp()
+	defer worker2.CleanUp()
+
+	fmt.Printf("Crash server 1\n")
+	test.Clients[1].Crash(test.Context, &emptypb.Empty{})
 
 	//clients add different files
 	file1 := "multi_file1.txt"
+	file2 := "multi_file1.txt"
 	err := worker1.AddFile(file1)
 	if err != nil {
 		t.FailNow()
 	}
-
-	fmt.Printf("Crash server 1\n")
-	test.Clients[1].Crash(test.Context, &emptypb.Empty{})
 
 	err = SyncClient("localhost:8080", "test0", BLOCK_SIZE, cfgPath)
 	if err != nil {
@@ -110,13 +113,9 @@ func TestRaftLogsConsistent(t *testing.T) {
 	test.Clients[0].SendHeartbeat(test.Context, &emptypb.Empty{})
 	fmt.Printf("End heartbeat\n")
 
-	err = worker1.UpdateFile(file1, "update text")
-	if err != nil {
-		t.FailNow()
-	}
-
 	fmt.Printf("Crash server 0\n")
 	test.Clients[0].Crash(test.Context, &emptypb.Empty{})
+
 	fmt.Printf("Restore server 1\n")
 	test.Clients[1].Restore(test.Context, &emptypb.Empty{})
 
@@ -125,6 +124,11 @@ func TestRaftLogsConsistent(t *testing.T) {
 	test.Clients[1].SendHeartbeat(test.Context, &emptypb.Empty{})
 	fmt.Printf("End heartbeat\n")
 
+	err = worker1.AddFile(file2)
+	if err != nil {
+		t.FailNow()
+	}
+
 	err = SyncClient("localhost:8080", "test0", BLOCK_SIZE, cfgPath)
 	if err != nil {
 		t.Fatalf("Sync failed")
@@ -132,6 +136,7 @@ func TestRaftLogsConsistent(t *testing.T) {
 	fmt.Printf("Start heartbeat\n")
 	test.Clients[1].SendHeartbeat(test.Context, &emptypb.Empty{})
 	fmt.Printf("End heartbeat\n")
+
 	test.Clients[0].Restore(test.Context, &emptypb.Empty{})
 
 	fmt.Printf("Start heartbeat\n")

@@ -241,6 +241,7 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 	if s.isCrashed {
 		output.Success = false
 		//fmt.Printf("%d append entries false 1\n", s.id)
+		return &output, ERR_SERVER_CRASHED
 	}
 
 	// is heartbeat
@@ -312,9 +313,9 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 		//		fmt.Printf("server: %d. Commit index changed: %d\n", s.id, s.commitIndex)
 	}
 
-	if s.isCrashed {
+	/*if s.isCrashed {
 		return &output, ERR_SERVER_CRASHED
-	}
+	}*/
 
 	//(s)
 	//fmt.Printf("\n")
