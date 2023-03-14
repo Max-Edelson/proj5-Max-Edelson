@@ -243,8 +243,6 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInput) (*AppendEntryOutput, error) {
 	var output = AppendEntryOutput{Term: s.term, Success: true}
 
-	print_state(s)
-
 	if s.isCrashed {
 		output.Success = false
 		//fmt.Printf("%d append entries false 1\n", s.id)
@@ -293,6 +291,9 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 			}
 		}
 	}
+
+	print_state(s)
+	fmt.Printf("input.PrevLogIndex: %d\n", input.PrevLogIndex)
 
 	if len(input.Entries) != 0 && !s.isCrashed {
 		if input.Term > s.term {
