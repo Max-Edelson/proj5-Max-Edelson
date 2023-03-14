@@ -371,6 +371,7 @@ func (s *RaftSurfstore) SetLeader(ctx context.Context, empty *emptypb.Empty) (*S
 }
 
 func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*Success, error) {
+	fmt.Printf("Send heartbeat from server %d\n", s.id)
 	print_state(s)
 	//var appendEntryInput = AppendEntryInput{Term: s.term, Entries: make([]*UpdateOperation, 0)}
 
@@ -412,6 +413,7 @@ func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*S
 				respondedServers++
 				s.matchIndex[idx] = appendEntryResponse.MatchedIndex
 				s.nextIndex[idx] = int64(len(s.log))
+				fmt.Printf("Success from server %d\n", idx)
 				//fmt.Printf("%d. RaftServer UpdateFile() applied appendEntry to %d successfully\n", s.id, idx)
 				break
 			} else {
