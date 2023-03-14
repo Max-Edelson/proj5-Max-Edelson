@@ -381,7 +381,7 @@ func (s *RaftSurfstore) SetLeader(ctx context.Context, empty *emptypb.Empty) (*S
 
 func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*Success, error) {
 	//fmt.Printf("%d. Send heartbeat.\n", s.id)
-	//print_state(s)
+	print_state(s)
 	//var appendEntryInput = AppendEntryInput{Term: s.term, Entries: make([]*UpdateOperation, 0)}
 
 	respondedServers := 1 // automatically call self
