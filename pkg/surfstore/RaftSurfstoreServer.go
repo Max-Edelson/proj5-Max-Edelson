@@ -114,7 +114,7 @@ func (s *RaftSurfstore) GetBlockStoreAddrs(ctx context.Context, empty *emptypb.E
 
 func print_state(s *RaftSurfstore) {
 	fmt.Printf("id: %d, isLeader: %t, term: %d, log len: %d,\n raftAddrs len: %d, blockAddrs len: %d, commit index: %d, last applied idx: %d,\nnext index: %v, match index: %v\n", s.id, s.isLeader, s.term, len(s.log), len(s.raftAddrs), len(s.blockAddrs), s.commitIndex, s.lastApplied, s.nextIndex, s.matchIndex)
-	meta, exist := s.metaStore.FileMetaMap["multi_file1.txt"]
+	meta, exist := s.metaStore.FileMetaMap["testFile1"]
 
 	if !exist {
 		fmt.Printf("id: %d. exist: %t\n", s.id, exist)
@@ -129,17 +129,17 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 		if !s.isCrashed {
 			fmt.Printf("%d. Recieved update meta: %v\n", s.id, filemeta)
 			var empty *emptypb.Empty
-			startTime := time.Now()
+			//startTime := time.Now()
 			for { // loop until a majority of the servers are not crashed
 				succ, err := s.SendHeartbeat(ctx, empty)
 				checkError(err)
 				if succ.Flag {
 					break
 				}
-				timePassed := time.Since(startTime)
+				/*timePassed := time.Since(startTime)
 				if timePassed >= 3*time.Second {
 					return nil, ERR_SERVER_CRASHED
-				}
+				}*/
 			}
 			if s.metaStore.FileMetaMap == nil {
 				s.metaStore.FileMetaMap = make(map[string]*FileMetaData)
