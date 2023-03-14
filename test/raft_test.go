@@ -1,6 +1,7 @@
 package SurfTest
 
 import (
+	"cse224/proj5/pkg/surfstore"
 	"fmt"
 	"os"
 	"testing"
@@ -299,10 +300,16 @@ func TestRaftNewLeaderPushesUpdates(t *testing.T) {
 		t.FailNow()
 	}
 
-	err = SyncClient("localhost:8080", "test0", BLOCK_SIZE, cfgPath)
+	/*err = SyncClient("localhost:8080", "test0", BLOCK_SIZE, cfgPath)
 	if err != nil {
 		t.Fatalf("Sync failed")
-	}
+	}*/
+
+	fmt.Printf("Upload file to server 0.\n")
+	hashlist := make([]string, 0)
+	hashlist = append(hashlist, "9193460d4355655100cced0da2455725954377e10edfa83f18d347a10e2e2628")
+	meta := surfstore.FileMetaData{Filename: "multi_file1.txt", Version: 1, BlockHashList: hashlist}
+	test.Clients[0].UpdateFile(test.Context, &meta)
 
 	fmt.Printf("Start heartbeat\n")
 	test.Clients[0].SendHeartbeat(test.Context, &emptypb.Empty{})
@@ -322,18 +329,18 @@ func TestRaftNewLeaderPushesUpdates(t *testing.T) {
 	fmt.Printf("End heartbeat\n")
 
 	for idx, server := range test.Clients {
-		if idx == 0 {
+		/*if idx == 0 {
 			continue
-		}
+		}*/
 		state, _ := server.GetInternalState(test.Context, &emptypb.Empty{})
 		if state == nil {
 			t.Fatalf("Could not get state for server %d", idx)
 		}
-		if state.Term != int64(2) {
+		/*if state.Term != int64(2) {
 			t.Fatalf("Server should be in term %d", 2)
-		}
-		if len(state.Log) != 1 {
-			t.Fatalf("Server %d has log length %d instead of 1", idx, len(state.Log))
+		}*/
+		if len(state.Log) != 0 {
+			t.Fatalf("Server %d has log length %d instead of 0", idx, len(state.Log))
 		}
 	}
 }

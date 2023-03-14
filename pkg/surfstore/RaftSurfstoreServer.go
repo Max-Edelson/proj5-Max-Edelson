@@ -129,11 +129,16 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 		if !s.isCrashed {
 			fmt.Printf("%d. Recieved update meta: %v\n", s.id, filemeta)
 			var empty *emptypb.Empty
+			startTime := time.Now()
 			for { // loop until a majority of the servers are not crashed
 				succ, err := s.SendHeartbeat(ctx, empty)
 				checkError(err)
 				if succ.Flag {
 					break
+				}
+				timePassed := time.Since(startTime)
+				if timePassed >= 5*time.Second {
+					return nil, ERR_SERVER_CRASHED
 				}
 			}
 			if s.metaStore.FileMetaMap == nil {
@@ -238,6 +243,8 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInput) (*AppendEntryOutput, error) {
 	var output = AppendEntryOutput{Term: s.term, Success: true}
 
+	print_state(s)
+
 	if s.isCrashed {
 		output.Success = false
 		//fmt.Printf("%d append entries false 1\n", s.id)
@@ -268,7 +275,6 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 		}
 
 		//		fmt.Printf("Append entries\n")
-		//		print_state(s)
 		for {
 			if s.commitIndex > s.lastApplied || (s.commitIndex == 0 && s.lastApplied == 0 && len(s.log) == 1) { //|| (len(s.log) == 1 && s.commitIndex == 0 && first_iter) {
 				if s.lastApplied > 0 || s.commitIndex > 0 {
@@ -415,7 +421,7 @@ func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*S
 				respondedServers++
 				s.matchIndex[idx] = appendEntryResponse.MatchedIndex
 				s.nextIndex[idx] = int64(len(s.log))
-				fmt.Printf("Success from server %d\n", idx)
+				//fmt.Printf("Success from server %d\n", idx)
 				//fmt.Printf("%d. RaftServer UpdateFile() applied appendEntry to %d successfully\n", s.id, idx)
 				break
 			} else {
