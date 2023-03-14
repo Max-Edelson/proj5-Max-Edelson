@@ -325,13 +325,18 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 func (s *RaftSurfstore) check_if_need_to_increment_term() bool {
 	increment := false
 
-	if len(s.log) > 0 {
-		for _, log := range s.log {
-			if (*log).Term == s.term {
-				increment = true
+	if s.term == 0 {
+		increment = true
+	} else {
+		if len(s.log) > 0 {
+			for _, log := range s.log {
+				if (*log).Term == s.term {
+					increment = true
+				}
 			}
 		}
 	}
+
 	return increment
 }
 
