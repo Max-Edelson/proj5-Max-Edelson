@@ -319,7 +319,6 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 
 	if !s.isCrashed {
 		for {
-			made_a_change := false
 			if s.commitIndex > s.lastApplied || (s.commitIndex == 0 && s.lastApplied == 0 && len(s.log) == 1) { //|| (len(s.log) == 1 && s.commitIndex == 0 && first_iter) {
 				if s.lastApplied > 0 || s.commitIndex > 0 {
 					s.lastApplied = s.lastApplied + 1
@@ -329,11 +328,11 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 				fmt.Printf("%d. Log commit (%d) meta: %v\n", s.id, s.lastApplied, filemeta)
 				s.metaStore.FileMetaMap[filemeta.Filename] = filemeta
 				output.MatchedIndex = s.lastApplied
-				made_a_change = true
+
+				if s.lastApplied == 0 {
+					break
+				}
 			} else {
-				break
-			}
-			if !made_a_change {
 				break
 			}
 		}
