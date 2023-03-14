@@ -44,7 +44,6 @@ func (s *RaftSurfstore) GetFileInfoMap(ctx context.Context, empty *emptypb.Empty
 				if succ.Flag {
 					break
 				}
-				time.Sleep(400 * time.Millisecond)
 				// majority of servers are crashed
 			}
 			metaMap, err := s.metaStore.GetFileInfoMap(ctx, empty)
@@ -71,7 +70,6 @@ func (s *RaftSurfstore) GetBlockStoreMap(ctx context.Context, hashes *BlockHashe
 				if succ.Flag {
 					break
 				}
-				time.Sleep(400 * time.Millisecond)
 			}
 
 			var blockStoreMap = BlockStoreMap{BlockStoreMap: make(map[string]*BlockHashes)}
@@ -104,7 +102,6 @@ func (s *RaftSurfstore) GetBlockStoreAddrs(ctx context.Context, empty *emptypb.E
 				if succ.Flag {
 					break
 				}
-				time.Sleep(400 * time.Millisecond)
 			}
 			var blockStoreAddrs = BlockStoreAddrs{BlockStoreAddrs: s.metaStore.BlockStoreAddrs}
 			return &blockStoreAddrs, ctx.Err()
@@ -138,7 +135,6 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 				if succ.Flag {
 					break
 				}
-				time.Sleep(400 * time.Millisecond)
 			}
 			if s.metaStore.FileMetaMap == nil {
 				s.metaStore.FileMetaMap = make(map[string]*FileMetaData)
@@ -367,7 +363,6 @@ func (s *RaftSurfstore) SetLeader(ctx context.Context, empty *emptypb.Empty) (*S
 	for idx := range s.nextIndex {
 		s.nextIndex[idx] = s.lastApplied + 1
 	}
-	time.Sleep(400 * time.Millisecond)
 
 	//_, err := s.SendHeartbeat(ctx, empty)
 	//checkError(err)
