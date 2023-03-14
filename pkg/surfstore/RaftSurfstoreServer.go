@@ -137,7 +137,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 					break
 				}
 				timePassed := time.Since(startTime)
-				if timePassed >= 5*time.Second {
+				if timePassed >= 1*time.Second {
 					return nil, ERR_SERVER_CRASHED
 				}
 			}
@@ -145,7 +145,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 				s.metaStore.FileMetaMap = make(map[string]*FileMetaData)
 			}
 
-			//fmt.Printf("%d. RaftServer UpdateFile() finished heartbeat\n", s.id)
+			fmt.Printf("%d. RaftServer UpdateFile() finished heartbeat\n", s.id)
 
 			var version = Version{Version: -1}
 
