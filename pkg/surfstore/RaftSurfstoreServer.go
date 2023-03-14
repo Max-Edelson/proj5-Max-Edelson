@@ -38,14 +38,13 @@ type RaftSurfstore struct {
 func (s *RaftSurfstore) GetFileInfoMap(ctx context.Context, empty *emptypb.Empty) (*FileInfoMap, error) {
 	if s.isLeader {
 		if !s.isCrashed {
-			for {
-				succ, err := s.SendHeartbeat(ctx, empty)
-				checkError(err)
-				if succ.Flag {
-					break
-				}
-				// majority of servers are crashed
+			succ, err := s.SendHeartbeat(ctx, empty)
+			checkError(err)
+			if !succ.Flag {
+				fmt.Printf("SendHeartbeat failed\n")
+				return nil, ERR_SERVER_CRASHED
 			}
+
 			metaMap, err := s.metaStore.GetFileInfoMap(ctx, empty)
 			checkError(err)
 			//fmt.Printf("Made it here\n")
@@ -72,13 +71,11 @@ func (s *RaftSurfstore) GetBlockStoreMap(ctx context.Context, hashes *BlockHashe
 				}
 			}*/
 
-			for { // loop until a majority of the servers are not crashed or time passes > 2s
-				succ, err := s.SendHeartbeat(ctx, empty)
-				checkError(err)
-				if succ.Flag {
-					fmt.Printf("SendHeartbeat successful flag\n")
-					break
-				}
+			succ, err := s.SendHeartbeat(ctx, empty)
+			checkError(err)
+			if !succ.Flag {
+				fmt.Printf("SendHeartbeat failed\n")
+				return nil, ERR_SERVER_CRASHED
 			}
 
 			var blockStoreMap = BlockStoreMap{BlockStoreMap: make(map[string]*BlockHashes)}
@@ -105,13 +102,13 @@ func (s *RaftSurfstore) GetBlockStoreMap(ctx context.Context, hashes *BlockHashe
 func (s *RaftSurfstore) GetBlockStoreAddrs(ctx context.Context, empty *emptypb.Empty) (*BlockStoreAddrs, error) {
 	if s.isLeader {
 		if !s.isCrashed {
-			for {
-				succ, err := s.SendHeartbeat(ctx, empty)
-				checkError(err)
-				if succ.Flag {
-					break
-				}
+			succ, err := s.SendHeartbeat(ctx, empty)
+			checkError(err)
+			if !succ.Flag {
+				fmt.Printf("SendHeartbeat failed\n")
+				return nil, ERR_SERVER_CRASHED
 			}
+
 			var blockStoreAddrs = BlockStoreAddrs{BlockStoreAddrs: s.metaStore.BlockStoreAddrs}
 			return &blockStoreAddrs, ctx.Err()
 		} else { // leader is crashed
@@ -157,20 +154,14 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 			}
 
 			var empty *emptypb.Empty
-			startWaiting := time.Now()
-			for { // loop until a majority of the servers are not crashed or time passes > 2s
-				succ, err := s.SendHeartbeat(ctx, empty)
-				checkError(err)
-				if succ.Flag {
-					fmt.Printf("SendHeartbeat successful flag\n")
-					break
-				}
-				durationWaiting := time.Since(startWaiting)
-				if durationWaiting.Seconds() > 2 { // double check
-					fmt.Printf("Waiting for more than 2 seconds. Quit 2PC\n")
-					return &version, ctx.Err()
-				}
+
+			succ, err := s.SendHeartbeat(ctx, empty)
+			checkError(err)
+			if !succ.Flag {
+				fmt.Printf("SendHeartbeat failed\n")
+				return nil, ERR_SERVER_CRASHED
 			}
+
 			if s.metaStore.FileMetaMap == nil {
 				s.metaStore.FileMetaMap = make(map[string]*FileMetaData)
 			}
