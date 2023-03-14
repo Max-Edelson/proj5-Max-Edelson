@@ -263,6 +263,14 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 	} else */
 
 	if !s.isCrashed { // Apply commits
+		if input.Term > s.term {
+			s.term = input.Term
+			if s.isLeader {
+				s.isLeader = false
+				//fmt.Printf("%d stepping down from the leader for term %d\n", s.id, s.term)
+			}
+		}
+
 		for {
 			if s.commitIndex > s.lastApplied || (s.commitIndex == 0 && s.lastApplied == 0 && len(s.log) == 1) { //|| (len(s.log) == 1 && s.commitIndex == 0 && first_iter) {
 				if s.lastApplied > 0 || s.commitIndex > 0 {
