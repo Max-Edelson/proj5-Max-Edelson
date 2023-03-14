@@ -273,24 +273,6 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 		}
 
 		//		fmt.Printf("Append entries\n")
-		for {
-			if s.commitIndex > s.lastApplied || (s.commitIndex == 0 && s.lastApplied == 0 && len(s.log) == 1) { //|| (len(s.log) == 1 && s.commitIndex == 0 && first_iter) {
-				if s.lastApplied > 0 || s.commitIndex > 0 {
-					s.lastApplied = s.lastApplied + 1
-				}
-				fmt.Printf("%d. Applied commit to log. s.commitIndex: %d. s.lastApplied: %d. len(s.log): %d\n", s.id, s.commitIndex, s.lastApplied, len(s.log))
-				filemeta := s.log[s.lastApplied].FileMetaData
-				fmt.Printf("%d. Log commit (%d) meta: %v\n", s.id, s.lastApplied, filemeta)
-				s.metaStore.FileMetaMap[filemeta.Filename] = filemeta
-				output.MatchedIndex = s.lastApplied
-
-				if s.lastApplied == 0 {
-					break
-				}
-			} else {
-				break
-			}
-		}
 	}
 
 	print_state(s)
@@ -316,10 +298,10 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 				if int64(len(s.log)) <= idx {
 					s.log = append(s.log, inputItem)
 					fmt.Printf("server: %d. appending log. New length: %d\n", s.id, len(s.log))
-					//					output.MatchedIndex = idx
+					output.MatchedIndex = idx
 				} else if s.log[idx] != inputItem {
 					s.log[idx] = inputItem
-					//					output.MatchedIndex = idx
+					output.MatchedIndex = idx
 					fmt.Printf("server: %d. Changed log. New length: %d\n", s.id, len(s.log))
 				}
 			}
@@ -335,9 +317,27 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 		fmt.Printf("server: %d. Commit index changed: %d\n", s.id, s.commitIndex)
 	}
 
-	/*if s.isCrashed {
-		return &output, ERR_SERVER_CRASHED
-	}*/
+	if !s.isCrashed {
+		for {
+			made_a_change := false
+			if s.commitIndex > s.lastApplied || (s.commitIndex == 0 && s.lastApplied == 0 && len(s.log) == 1) { //|| (len(s.log) == 1 && s.commitIndex == 0 && first_iter) {
+				if s.lastApplied > 0 || s.commitIndex > 0 {
+					s.lastApplied = s.lastApplied + 1
+				}
+				fmt.Printf("%d. Applied commit to log. s.commitIndex: %d. s.lastApplied: %d. len(s.log): %d\n", s.id, s.commitIndex, s.lastApplied, len(s.log))
+				filemeta := s.log[s.lastApplied].FileMetaData
+				fmt.Printf("%d. Log commit (%d) meta: %v\n", s.id, s.lastApplied, filemeta)
+				s.metaStore.FileMetaMap[filemeta.Filename] = filemeta
+				output.MatchedIndex = s.lastApplied
+				made_a_change = true
+			} else {
+				break
+			}
+			if !made_a_change {
+				break
+			}
+		}
+	}
 
 	//(s)
 	if s.id == 0 {
@@ -421,6 +421,7 @@ func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*S
 				break
 			}
 			//checkError(err)
+			fmt.Printf("appendEntryResponse.MatchedIndex: %d. s.lastApplied: %d\n", appendEntryResponse.MatchedIndex, s.lastApplied)
 			if appendEntryResponse.Success && appendEntryResponse.MatchedIndex < s.lastApplied {
 				continue
 			} else if appendEntryResponse.Success {
