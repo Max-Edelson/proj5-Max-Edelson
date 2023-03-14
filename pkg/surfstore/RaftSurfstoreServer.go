@@ -316,10 +316,10 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 				if int64(len(s.log)) <= idx {
 					s.log = append(s.log, inputItem)
 					fmt.Printf("server: %d. appending log. New length: %d\n", s.id, len(s.log))
-					output.MatchedIndex = idx
+					//					output.MatchedIndex = idx
 				} else if s.log[idx] != inputItem {
 					s.log[idx] = inputItem
-					output.MatchedIndex = idx
+					//					output.MatchedIndex = idx
 					fmt.Printf("server: %d. Changed log. New length: %d\n", s.id, len(s.log))
 				}
 			}
@@ -421,14 +421,16 @@ func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*S
 				break
 			}
 			//checkError(err)
-			if appendEntryResponse.Success {
+			if appendEntryResponse.Success && appendEntryResponse.MatchedIndex < s.lastApplied {
+				continue
+			} else if appendEntryResponse.Success {
 				respondedServers++
 				s.matchIndex[idx] = appendEntryResponse.MatchedIndex
 				s.nextIndex[idx] = int64(len(s.log))
 				//fmt.Printf("Success from server %d\n", idx)
 				//fmt.Printf("%d. RaftServer UpdateFile() applied appendEntry to %d successfully\n", s.id, idx)
 				break
-			} else {
+			} else if !appendEntryResponse.Success {
 				if prevLogIndex > 0 {
 					prevLogIndex--
 					prevLogTerm = s.log[prevLogIndex].Term
