@@ -137,7 +137,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 					break
 				}
 				timePassed := time.Since(startTime)
-				if timePassed >= 1*time.Second {
+				if timePassed >= 3*time.Second {
 					return nil, ERR_SERVER_CRASHED
 				}
 			}
