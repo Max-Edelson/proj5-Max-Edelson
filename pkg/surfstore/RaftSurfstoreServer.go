@@ -322,8 +322,23 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 	return &output, ctx.Err()
 }
 
+func (s *RaftSurfstore) check_if_need_to_increment_term() bool {
+	increment := false
+
+	if len(s.log) > 0 {
+		for _, log := range s.log {
+			if (*log).Term == s.term {
+				increment = true
+			}
+		}
+	}
+	return increment
+}
+
 func (s *RaftSurfstore) SetLeader(ctx context.Context, empty *emptypb.Empty) (*Success, error) {
-	s.term++
+	if s.check_if_need_to_increment_term() {
+		s.term++
+	}
 	s.isLeader = true
 	s.nextIndex = make([]int64, len(s.raftAddrs))
 	s.matchIndex = make([]int64, len(s.raftAddrs)) // defaults to 0
