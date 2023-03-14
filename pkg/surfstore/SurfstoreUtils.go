@@ -125,7 +125,9 @@ func ClientSync(client RPCClient) {
 
 	remoteFileMetaMap := make(map[string]*FileMetaData)
 	err = client.GetFileInfoMap(&remoteFileMetaMap)
-	checkError(err)
+	if err == ERR_SERVER_CRASHED {
+		return
+	}
 	fmt.Printf("Done retrieving getFileInfoMap\n")
 	/*fmt.Printf("Done retrieving getFileInfoMap\n")
 	remoteFileMetaMap := *remoteFileInfoMap.FileInfoMap*/
