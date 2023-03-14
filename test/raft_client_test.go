@@ -90,9 +90,7 @@ func TestRaftLogsConsistent(t *testing.T) {
 	fmt.Printf("End heartbeat\n")
 
 	worker1 := InitDirectoryWorker("test0", SRC_PATH)
-	worker2 := InitDirectoryWorker("test1", SRC_PATH)
 	defer worker1.CleanUp()
-	defer worker2.CleanUp()
 
 	fmt.Printf("Crash server 1\n")
 	test.Clients[1].Crash(test.Context, &emptypb.Empty{})
@@ -115,13 +113,12 @@ func TestRaftLogsConsistent(t *testing.T) {
 
 	fmt.Printf("Crash server 0\n")
 	test.Clients[0].Crash(test.Context, &emptypb.Empty{})
-
 	fmt.Printf("Restore server 1\n")
 	test.Clients[1].Restore(test.Context, &emptypb.Empty{})
 
-	fmt.Printf("Set leader to server 1\n")
-	test.Clients[1].SetLeader(test.Context, &emptypb.Empty{})
-	test.Clients[1].SendHeartbeat(test.Context, &emptypb.Empty{})
+	fmt.Printf("Set leader to server 2\n")
+	test.Clients[2].SetLeader(test.Context, &emptypb.Empty{})
+	test.Clients[2].SendHeartbeat(test.Context, &emptypb.Empty{})
 	fmt.Printf("End heartbeat\n")
 
 	err = worker1.AddFile(file2)
@@ -134,13 +131,13 @@ func TestRaftLogsConsistent(t *testing.T) {
 		t.Fatalf("Sync failed")
 	}
 	fmt.Printf("Start heartbeat\n")
-	test.Clients[1].SendHeartbeat(test.Context, &emptypb.Empty{})
+	test.Clients[2].SendHeartbeat(test.Context, &emptypb.Empty{})
 	fmt.Printf("End heartbeat\n")
 
 	test.Clients[0].Restore(test.Context, &emptypb.Empty{})
 
 	fmt.Printf("Start heartbeat\n")
-	test.Clients[1].SendHeartbeat(test.Context, &emptypb.Empty{})
+	test.Clients[2].SendHeartbeat(test.Context, &emptypb.Empty{})
 	fmt.Printf("End heartbeat\n")
 }
 
