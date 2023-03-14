@@ -38,14 +38,12 @@ type RaftSurfstore struct {
 func (s *RaftSurfstore) GetFileInfoMap(ctx context.Context, empty *emptypb.Empty) (*FileInfoMap, error) {
 	if s.isLeader {
 		if !s.isCrashed {
-			for {
-				succ, err := s.SendHeartbeat(ctx, empty)
-				checkError(err)
-				if succ.Flag {
-					break
-				}
-				// majority of servers are crashed
+			succ, err := s.SendHeartbeat(ctx, empty)
+			checkError(err)
+			if !succ.Flag {
+				return nil, ERR_SERVER_CRASHED
 			}
+
 			metaMap, err := s.metaStore.GetFileInfoMap(ctx, empty)
 			checkError(err)
 			//fmt.Printf("Made it here\n")
@@ -64,12 +62,10 @@ func (s *RaftSurfstore) GetBlockStoreMap(ctx context.Context, hashes *BlockHashe
 	if s.isLeader {
 		if !s.isCrashed {
 			var empty *emptypb.Empty
-			for {
-				succ, err := s.SendHeartbeat(ctx, empty)
-				checkError(err)
-				if succ.Flag {
-					break
-				}
+			succ, err := s.SendHeartbeat(ctx, empty)
+			checkError(err)
+			if !succ.Flag {
+				return nil, ERR_SERVER_CRASHED
 			}
 
 			var blockStoreMap = BlockStoreMap{BlockStoreMap: make(map[string]*BlockHashes)}
@@ -96,13 +92,12 @@ func (s *RaftSurfstore) GetBlockStoreMap(ctx context.Context, hashes *BlockHashe
 func (s *RaftSurfstore) GetBlockStoreAddrs(ctx context.Context, empty *emptypb.Empty) (*BlockStoreAddrs, error) {
 	if s.isLeader {
 		if !s.isCrashed {
-			for {
-				succ, err := s.SendHeartbeat(ctx, empty)
-				checkError(err)
-				if succ.Flag {
-					break
-				}
+			succ, err := s.SendHeartbeat(ctx, empty)
+			checkError(err)
+			if !succ.Flag {
+				return nil, ERR_SERVER_CRASHED
 			}
+
 			var blockStoreAddrs = BlockStoreAddrs{BlockStoreAddrs: s.metaStore.BlockStoreAddrs}
 			return &blockStoreAddrs, ctx.Err()
 		} else { // leader is crashed
@@ -129,13 +124,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 		if !s.isCrashed {
 			fmt.Printf("%d. Recieved update meta: %v\n", s.id, filemeta)
 			var empty *emptypb.Empty
-			for { // loop until a majority of the servers are not crashed
-				succ, err := s.SendHeartbeat(ctx, empty)
-				checkError(err)
-				if succ.Flag {
-					break
-				}
-			}
+
 			if s.metaStore.FileMetaMap == nil {
 				s.metaStore.FileMetaMap = make(map[string]*FileMetaData)
 			}
@@ -156,6 +145,12 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 				//fmt.Printf("%d. RaftServer UpdateFile() s.log.len: %d: \n", s.id, len(s.log))
 			} else { // invalid update
 				return &version, ctx.Err()
+			}
+
+			succ, err := s.SendHeartbeat(ctx, empty)
+			checkError(err)
+			if !succ.Flag {
+				return nil, ERR_SERVER_CRASHED
 			}
 
 			// issue 2-phase commit to followers
