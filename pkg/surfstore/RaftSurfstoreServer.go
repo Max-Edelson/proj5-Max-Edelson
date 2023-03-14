@@ -153,7 +153,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 				var updateOperation = UpdateOperation{Term: s.term, FileMetaData: filemeta}
 				s.log = append(s.log, &updateOperation) // apply to state machine
 				s.commitIndex = int64(len(s.log) - 1)
-				//fmt.Printf("%d. RaftServer UpdateFile() s.log.len: %d: \n", s.id, len(s.log))
+				fmt.Printf("%d. RaftServer UpdateFile() s.log.len: %d: \n", s.id, len(s.log))
 			} else { // invalid update
 				return &version, ctx.Err()
 			}
@@ -267,6 +267,8 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 			}
 		}
 
+		//		fmt.Printf("Append entries\n")
+		//		print_state(s)
 		for {
 			if s.commitIndex > s.lastApplied || (s.commitIndex == 0 && s.lastApplied == 0 && len(s.log) == 1) { //|| (len(s.log) == 1 && s.commitIndex == 0 && first_iter) {
 				if s.lastApplied > 0 || s.commitIndex > 0 {
@@ -371,8 +373,8 @@ func (s *RaftSurfstore) SetLeader(ctx context.Context, empty *emptypb.Empty) (*S
 }
 
 func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*Success, error) {
-	fmt.Printf("Send heartbeat from server %d\n", s.id)
-	print_state(s)
+	//fmt.Printf("%d. Send heartbeat.\n", s.id)
+	//print_state(s)
 	//var appendEntryInput = AppendEntryInput{Term: s.term, Entries: make([]*UpdateOperation, 0)}
 
 	respondedServers := 1 // automatically call self

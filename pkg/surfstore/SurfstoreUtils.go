@@ -124,10 +124,11 @@ func ClientSync(client RPCClient) {
 	fmt.Printf("Done connecting to raft surfstore client\n")*/
 
 	remoteFileMetaMap := make(map[string]*FileMetaData)
+	fmt.Printf("Start retrieving getFileInfoMap\n")
 	err = client.GetFileInfoMap(&remoteFileMetaMap)
 	checkError(err)
-	/*fmt.Printf("Done retrieving getFileInfoMap\n")
-	remoteFileMetaMap := *remoteFileInfoMap.FileInfoMap*/
+	fmt.Printf("Done retrieving getFileInfoMap\n")
+	//remoteFileMetaMap := *remoteFileInfoMap.FileInfoMap*/
 
 	// Open blockStoreClient connection
 	blockStoreAddrs := make([]string, 0)
