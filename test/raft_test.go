@@ -20,33 +20,34 @@ func TestRaftLogsCorrectlyOverwritten(t *testing.T) {
 	fmt.Printf("End heartbeat\n")
 
 	worker1 := InitDirectoryWorker("test0", SRC_PATH)
-	worker2 := InitDirectoryWorker("test1", SRC_PATH)
 	defer worker1.CleanUp()
-	defer worker2.CleanUp()
 
 	//clients add different files
 	file1 := "multi_file1.txt"
-	file2 := "multi_file1.txt"
+	file2 := "multi_file2.txt"
 	err := worker1.AddFile(file1)
 	if err != nil {
 		t.FailNow()
 	}
-	err = worker2.AddFile(file2)
-	if err != nil {
-		t.FailNow()
-	}
-	err = worker2.UpdateFile(file2, "update text")
+
+	hashlist := make([]string, 0)
+	hashlist = append(hashlist, "9193460d4355655100cced0da2455725954377e10edfa83f18d347a10e2e2628")
+	meta := surfstore.FileMetaData{Filename: "multi_file1.txt", Version: 1, BlockHashList: hashlist}
+	test.Clients[0].UpdateFile(test.Context, &meta)
+
+	err = worker1.AddFile(file2)
 	if err != nil {
 		t.FailNow()
 	}
 
-	//client1 syncs
-	//fmt.Printf("Start Sync\n")
-	err = SyncClient("localhost:8080", "test0", BLOCK_SIZE, cfgPath)
-	if err != nil {
-		t.Fatalf("Sync failed")
-	}
-	//fmt.Printf("End Sync\n")
+	hashlist = make([]string, 0)
+	hashlist = append(hashlist, "9483460d4355655100cced0da2455725954377e10edfa83f18d347a10e2e2628")
+	meta = surfstore.FileMetaData{Filename: "multi_file2.txt", Version: 1, BlockHashList: hashlist}
+	test.Clients[0].UpdateFile(test.Context, &meta)
+
+	fmt.Printf("Crash server 1, 2\n")
+	test.Clients[1].Crash(test.Context, &emptypb.Empty{})
+	test.Clients[2].Crash(test.Context, &emptypb.Empty{})
 
 	//fmt.Printf("Start heartbeat\n")
 	test.Clients[0].SendHeartbeat(test.Context, &emptypb.Empty{})

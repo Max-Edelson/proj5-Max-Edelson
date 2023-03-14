@@ -303,7 +303,7 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 		if input.Term < s.term {
 			output.Success = false
 			//fmt.Printf("%d append entries false 2\n", s.id)
-		} else if len(s.log) < int(input.PrevLogIndex) {
+		} else if len(s.log)-1 < int(input.PrevLogIndex) {
 			output.Success = false
 			//fmt.Printf("%d append entries false 3\n", s.id)
 		} else if len(s.log) > 0 && s.log[input.PrevLogIndex].Term != input.PrevLogTerm {
