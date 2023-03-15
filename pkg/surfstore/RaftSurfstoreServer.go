@@ -149,6 +149,8 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 				return &version, ctx.Err()
 			}
 
+			print_state(s)
+
 			var empty *emptypb.Empty
 			//startTime := time.Now()
 			for { // loop until a majority of the servers are not crashed
@@ -173,6 +175,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 				for {
 					appendSuccesses := 1
 					for idx, raftServerIp := range s.raftAddrs {
+						print_state(s)
 						if raftServerIp == s.raftAddrs[s.id] {
 							continue
 						}
@@ -397,6 +400,10 @@ func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*S
 
 	respondedServers := 1 // automatically call self
 	flag := false
+
+	if s.crashedGetter() {
+		return &Success{Flag: flag}, ctx.Err()
+	}
 
 	for idx, raftServerIp := range s.raftAddrs {
 		if raftServerIp == s.raftAddrs[s.id] {
