@@ -130,17 +130,6 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 			fmt.Printf("%d. Recieved update meta: %v\n", s.id, filemeta)
 			var empty *emptypb.Empty
 			//startTime := time.Now()
-			for { // loop until a majority of the servers are not crashed
-				succ, err := s.SendHeartbeat(ctx, empty)
-				checkError(err)
-				if succ.Flag {
-					break
-				}
-				/*timePassed := time.Since(startTime)
-				if timePassed >= 3*time.Second {
-					return nil, ERR_SERVER_CRASHED
-				}*/
-			}
 			if s.metaStore.FileMetaMap == nil {
 				s.metaStore.FileMetaMap = make(map[string]*FileMetaData)
 			}
@@ -160,7 +149,20 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 				s.commitIndex = int64(len(s.log) - 1)
 				fmt.Printf("%d. RaftServer UpdateFile() s.log.len: %d: \n", s.id, len(s.log))
 			} else { // invalid update
+				fmt.Printf("%d. Invalid update\n", s.id)
 				return &version, ctx.Err()
+			}
+
+			for { // loop until a majority of the servers are not crashed
+				succ, err := s.SendHeartbeat(ctx, empty)
+				checkError(err)
+				if succ.Flag {
+					break
+				}
+				/*timePassed := time.Since(startTime)
+				if timePassed >= 3*time.Second {
+					return nil, ERR_SERVER_CRASHED
+				}*/
 			}
 
 			// issue 2-phase commit to followers
@@ -276,7 +278,7 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 	}
 
 	print_state(s)
-	fmt.Printf("input.PrevLogIndex: %d\n", input.PrevLogIndex)
+	fmt.Printf("%d. input.PrevLogIndex: %d\n", s.id, input.PrevLogIndex)
 
 	if len(input.Entries) != 0 && !s.isCrashed {
 		if input.Term > s.term {
@@ -420,7 +422,7 @@ func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*S
 				break
 			}
 			//checkError(err)
-			fmt.Printf("appendEntryResponse.MatchedIndex: %d. s.lastApplied: %d\n", appendEntryResponse.MatchedIndex, s.lastApplied)
+			fmt.Printf("%d. appendEntryResponse.MatchedIndex: %d. s.lastApplied: %d\n", s.id, appendEntryResponse.MatchedIndex, s.lastApplied)
 			if appendEntryResponse.Success && appendEntryResponse.MatchedIndex < s.lastApplied {
 				continue
 			} else if appendEntryResponse.Success {
