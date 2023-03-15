@@ -358,6 +358,8 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 			//fmt.Printf("%d append entries false 3\n", s.id)
 		} else if int64(len(s.log)-1) >= input.PrevLogIndex && s.log[input.PrevLogIndex].Term != input.PrevLogTerm {
 			s.log = input.Entries
+			s.lastApplied = 0
+			s.commitIndex = input.LeaderCommit
 		} else {
 			for idx := input.PrevLogIndex; idx < int64(len(input.Entries)); idx++ {
 				inputItem := input.Entries[idx]
