@@ -196,7 +196,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 
 			//var empty *emptypb.Empty
 			//startTime := time.Now()
-			/*for { // loop until a majority of the servers are not crashed
+			for { // loop until a majority of the servers are not crashed
 				if s.crashedGetter() {
 					return nil, ERR_SERVER_CRASHED
 				}
@@ -206,8 +206,12 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 				if succ && !s.crashedGetter() {
 					break
 				}
+				/*timePassed := time.Since(startTime)
+				if timePassed >= 3*time.Second {
+					return nil, ERR_SERVER_CRASHED
+				}*/
 			}
-			fmt.Printf("%d. RaftServer UpdateFile() finished heartbeat\n", s.id)*/
+			fmt.Printf("%d. RaftServer UpdateFile() finished heartbeat\n", s.id)
 
 			// issue 2-phase commit to followers
 			if !s.crashedGetter() {
@@ -222,21 +226,12 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 						// connect to the other raft server
 						conn, err := grpc.Dial(raftServerIp, grpc.WithInsecure())
 						if err != nil {
-							continue
+							return nil, err
 						}
 						c := NewRaftSurfstoreClient(conn)
 
 						ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 						defer cancel()
-
-						// checks if the server is crashed
-						emptyLog := make([]*UpdateOperation, 0)
-						var appendEntryInput = AppendEntryInput{Term: s.term, Entries: emptyLog, LeaderCommit: -1}
-						appendEntryResponse, err := c.AppendEntries(ctx, &appendEntryInput)
-						conn.Close()
-						if err != nil || !appendEntryResponse.Success {
-							continue
-						}
 
 						prevLogIndex := s.lastApplied
 						prevLogTerm := s.log[s.lastApplied].Term
@@ -250,12 +245,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 
 							appendEntryResponse, err := c.AppendEntries(ctx, &appendEntryInput)
 							if err != nil {
-								if err == ERR_SERVER_CRASHED {
-									break
-								} else {
-									fmt.Printf("Apppend Entries other error: %s\n", err)
-									break
-								}
+								break
 							}
 							//checkError(err)
 							if appendEntryResponse.Success {
