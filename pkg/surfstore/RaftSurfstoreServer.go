@@ -162,6 +162,7 @@ func (s *RaftSurfstore) checkAlive(ctx context.Context) (bool, error) {
 	if aliveServers >= int(math.Ceil(float64(len(s.raftAddrs))/2.0)) {
 		flag = true
 	}
+	fmt.Printf("%d. Checkalive has %d alive servers. flag: %t\n", s.id, aliveServers, flag)
 
 	return flag, ctx.Err()
 }
