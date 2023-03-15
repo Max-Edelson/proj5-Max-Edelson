@@ -128,13 +128,9 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 	if s.isLeader {
 		if !s.isCrashed {
 			fmt.Printf("%d. Recieved update meta: %v\n", s.id, filemeta)
-			var empty *emptypb.Empty
-			//startTime := time.Now()
 			if s.metaStore.FileMetaMap == nil {
 				s.metaStore.FileMetaMap = make(map[string]*FileMetaData)
 			}
-
-			fmt.Printf("%d. RaftServer UpdateFile() finished heartbeat\n", s.id)
 
 			var version = Version{Version: -1}
 
@@ -153,6 +149,8 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 				return &version, ctx.Err()
 			}
 
+			var empty *emptypb.Empty
+			//startTime := time.Now()
 			for { // loop until a majority of the servers are not crashed
 				succ, err := s.SendHeartbeat(ctx, empty)
 				checkError(err)
@@ -164,71 +162,74 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 					return nil, ERR_SERVER_CRASHED
 				}*/
 			}
+			fmt.Printf("%d. RaftServer UpdateFile() finished heartbeat\n", s.id)
 
 			// issue 2-phase commit to followers
-			for {
-				appendSuccesses := 1
-				for idx, raftServerIp := range s.raftAddrs {
-					if raftServerIp == s.raftAddrs[s.id] {
-						continue
-					}
-
-					// connect to the other raft server
-					conn, err := grpc.Dial(raftServerIp, grpc.WithInsecure())
-					if err != nil {
-						return nil, err
-					}
-					c := NewRaftSurfstoreClient(conn)
-
-					ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-					defer cancel()
-
-					prevLogIndex := s.lastApplied
-					prevLogTerm := s.log[s.lastApplied].Term
-					//fmt.Printf("%d. RaftServer UpdateFile() start 2-phase commit to %d.\n", s.id, idx)
-
-					//print_state(s)
-
-					for {
-						var appendEntryInput = AppendEntryInput{Term: s.term, PrevLogIndex: prevLogIndex, PrevLogTerm: prevLogTerm,
-							Entries: s.log, LeaderCommit: s.commitIndex}
-
-						appendEntryResponse, err := c.AppendEntries(ctx, &appendEntryInput)
-						if err != nil {
-							break
+			if !s.isCrashed {
+				for {
+					appendSuccesses := 1
+					for idx, raftServerIp := range s.raftAddrs {
+						if raftServerIp == s.raftAddrs[s.id] {
+							continue
 						}
-						//checkError(err)
-						if appendEntryResponse.Success {
-							appendSuccesses++
-							s.matchIndex[idx] = appendEntryResponse.MatchedIndex
-							s.nextIndex[idx] = int64(len(s.log))
-							//fmt.Printf("%d. RaftServer UpdateFile() applied appendEntry to %d successfully\n", s.id, idx)
-							break
-						} else {
-							if prevLogIndex > 0 {
-								prevLogIndex--
-								prevLogTerm = s.log[prevLogIndex].Term
-								s.nextIndex[idx] = int64(prevLogIndex)
-							} else {
+
+						// connect to the other raft server
+						conn, err := grpc.Dial(raftServerIp, grpc.WithInsecure())
+						if err != nil {
+							return nil, err
+						}
+						c := NewRaftSurfstoreClient(conn)
+
+						ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+						defer cancel()
+
+						prevLogIndex := s.lastApplied
+						prevLogTerm := s.log[s.lastApplied].Term
+						//fmt.Printf("%d. RaftServer UpdateFile() start 2-phase commit to %d.\n", s.id, idx)
+
+						//print_state(s)
+
+						for {
+							var appendEntryInput = AppendEntryInput{Term: s.term, PrevLogIndex: prevLogIndex, PrevLogTerm: prevLogTerm,
+								Entries: s.log, LeaderCommit: s.commitIndex}
+
+							appendEntryResponse, err := c.AppendEntries(ctx, &appendEntryInput)
+							if err != nil {
 								break
+							}
+							//checkError(err)
+							if appendEntryResponse.Success {
+								appendSuccesses++
+								s.matchIndex[idx] = appendEntryResponse.MatchedIndex
+								s.nextIndex[idx] = int64(len(s.log))
+								//fmt.Printf("%d. RaftServer UpdateFile() applied appendEntry to %d successfully\n", s.id, idx)
+								break
+							} else {
+								if prevLogIndex > 0 {
+									prevLogIndex--
+									prevLogTerm = s.log[prevLogIndex].Term
+									s.nextIndex[idx] = int64(prevLogIndex)
+								} else {
+									break
+								}
 							}
 						}
 					}
-				}
 
-				// Commit update if majority of servers agreed
-				if appendSuccesses >= int(math.Ceil(float64(len(s.raftAddrs))/2.0)) {
-					//fmt.Printf("%d. Apply commit to log. appendSuccesses: %d\n", s.id, appendSuccesses)
-					// log update in local log
-					s.metaStore.FileMetaMap[filemeta.Filename] = filemeta
-					version.Version = filemeta.Version
-					s.lastApplied = int64(len(s.log) - 1)
-					//s.SendHeartbeat(ctx, empty)
-					return &version, ctx.Err()
-				} // otherwise restart and try to get a majority again
+					// Commit update if majority of servers agreed
+					if appendSuccesses >= int(math.Ceil(float64(len(s.raftAddrs))/2.0)) {
+						//fmt.Printf("%d. Apply commit to log. appendSuccesses: %d\n", s.id, appendSuccesses)
+						// log update in local log
+						s.metaStore.FileMetaMap[filemeta.Filename] = filemeta
+						version.Version = filemeta.Version
+						s.lastApplied = int64(len(s.log) - 1)
+						//s.SendHeartbeat(ctx, empty)
+						return &version, ctx.Err()
+					} // otherwise restart and try to get a majority again
+				}
+			} else { // leader is crashed
+				return nil, ERR_SERVER_CRASHED
 			}
-		} else { // leader is crashed
-			return nil, ERR_SERVER_CRASHED
 		}
 	}
 	return nil, ERR_NOT_LEADER
