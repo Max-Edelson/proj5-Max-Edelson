@@ -153,7 +153,7 @@ func (s *RaftSurfstore) checkAlive(ctx context.Context) (bool, error) {
 		appendEntryResponse, err := c.AppendEntries(ctx, &appendEntryInput)
 		conn.Close()
 		if err != nil || !appendEntryResponse.Success {
-			break
+			continue
 		} else {
 			aliveServers++
 		}
@@ -162,7 +162,7 @@ func (s *RaftSurfstore) checkAlive(ctx context.Context) (bool, error) {
 	if aliveServers >= int(math.Ceil(float64(len(s.raftAddrs))/2.0)) {
 		flag = true
 	}
-	fmt.Printf("%d. Checkalive has %d alive servers. flag: %t\n", s.id, aliveServers, flag)
+	fmt.Printf("%d. Checkalive: %d/%d. flag: %t\n", s.id, aliveServers, int(math.Ceil(float64(len(s.raftAddrs))/2.0)), flag)
 
 	return flag, ctx.Err()
 }
