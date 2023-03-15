@@ -124,6 +124,48 @@ func print_state(s *RaftSurfstore) {
 	fmt.Printf("\n")
 }
 
+func (s *RaftSurfstore) checkAlive(ctx context.Context) (bool, error) {
+	aliveServers := 1 // automatically call self
+	flag := false
+
+	if s.crashedGetter() {
+		return flag, ctx.Err()
+	}
+
+	for _, raftServerIp := range s.raftAddrs {
+		if raftServerIp == s.raftAddrs[s.id] {
+			continue
+		}
+
+		conn, err := grpc.Dial(raftServerIp, grpc.WithInsecure())
+		if err != nil {
+			continue
+		}
+		c := NewRaftSurfstoreClient(conn)
+
+		// perform the call
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		emptyLog := make([]*UpdateOperation, 0)
+		var appendEntryInput = AppendEntryInput{Term: s.term, Entries: emptyLog, LeaderCommit: -1}
+
+		appendEntryResponse, err := c.AppendEntries(ctx, &appendEntryInput)
+		conn.Close()
+		if err != nil || !appendEntryResponse.Success {
+			break
+		} else {
+			aliveServers++
+		}
+	}
+
+	if aliveServers >= int(math.Ceil(float64(len(s.raftAddrs))/2.0)) {
+		flag = true
+	}
+
+	return flag, ctx.Err()
+}
+
 func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) (*Version, error) {
 	if s.isLeader {
 		if !s.crashedGetter() {
@@ -151,16 +193,16 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 
 			print_state(s)
 
-			var empty *emptypb.Empty
+			//var empty *emptypb.Empty
 			//startTime := time.Now()
 			for { // loop until a majority of the servers are not crashed
 				if s.crashedGetter() {
 					return nil, ERR_SERVER_CRASHED
 				}
 
-				succ, err := s.SendHeartbeat(ctx, empty)
+				succ, err := s.checkAlive(ctx)
 				checkError(err)
-				if succ.Flag {
+				if succ && !s.crashedGetter() {
 					break
 				}
 				/*timePassed := time.Since(startTime)
@@ -275,7 +317,7 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 		print_state(s)
 	} else */
 
-	if !s.crashedGetter() { // Apply commits
+	if !s.crashedGetter() {
 		if input.Term > s.term {
 			s.term = input.Term
 			if s.leaderGetter() {
@@ -284,6 +326,14 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 			}
 		}
 
+		if len(input.Entries) == 0 && input.LeaderCommit == -1 { // checkAlive status
+			if s.isCrashed {
+				output.Success = false
+				return &output, ERR_SERVER_CRASHED
+			} else {
+				return &output, ERR_SERVER_CRASHED
+			}
+		}
 		//		fmt.Printf("Append entries\n")
 	}
 
