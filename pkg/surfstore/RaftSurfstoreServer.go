@@ -332,7 +332,7 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 				output.Success = false
 				return &output, ERR_SERVER_CRASHED
 			} else {
-				return &output, ERR_SERVER_CRASHED
+				return &output, nil
 			}
 		}
 		//		fmt.Printf("Append entries\n")
