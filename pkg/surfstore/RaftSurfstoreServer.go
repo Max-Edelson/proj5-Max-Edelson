@@ -36,8 +36,8 @@ type RaftSurfstore struct {
 }
 
 func (s *RaftSurfstore) GetFileInfoMap(ctx context.Context, empty *emptypb.Empty) (*FileInfoMap, error) {
-	if s.isLeader {
-		if !s.isCrashed {
+	if s.leaderGetter() {
+		if !s.crashedGetter() {
 			for {
 				succ, err := s.SendHeartbeat(ctx, empty)
 				checkError(err)
@@ -61,8 +61,8 @@ func (s *RaftSurfstore) GetFileInfoMap(ctx context.Context, empty *emptypb.Empty
 }
 
 func (s *RaftSurfstore) GetBlockStoreMap(ctx context.Context, hashes *BlockHashes) (*BlockStoreMap, error) {
-	if s.isLeader {
-		if !s.isCrashed {
+	if s.leaderGetter() {
+		if !s.crashedGetter() {
 			var empty *emptypb.Empty
 			for {
 				succ, err := s.SendHeartbeat(ctx, empty)
@@ -94,8 +94,8 @@ func (s *RaftSurfstore) GetBlockStoreMap(ctx context.Context, hashes *BlockHashe
 }
 
 func (s *RaftSurfstore) GetBlockStoreAddrs(ctx context.Context, empty *emptypb.Empty) (*BlockStoreAddrs, error) {
-	if s.isLeader {
-		if !s.isCrashed {
+	if s.leaderGetter() {
+		if !s.crashedGetter() {
 			for {
 				succ, err := s.SendHeartbeat(ctx, empty)
 				checkError(err)
@@ -113,7 +113,7 @@ func (s *RaftSurfstore) GetBlockStoreAddrs(ctx context.Context, empty *emptypb.E
 }
 
 func print_state(s *RaftSurfstore) {
-	fmt.Printf("id: %d, isLeader: %t, term: %d, log len: %d,\n raftAddrs len: %d, blockAddrs len: %d, commit index: %d, last applied idx: %d,\nnext index: %v, match index: %v\n", s.id, s.isLeader, s.term, len(s.log), len(s.raftAddrs), len(s.blockAddrs), s.commitIndex, s.lastApplied, s.nextIndex, s.matchIndex)
+	fmt.Printf("id: %d, isLeader: %t, term: %d, log len: %d,\n raftAddrs len: %d, blockAddrs len: %d, commit index: %d, last applied idx: %d,\nnext index: %v, match index: %v\n", s.id, s.leaderGetter(), s.term, len(s.log), len(s.raftAddrs), len(s.blockAddrs), s.commitIndex, s.lastApplied, s.nextIndex, s.matchIndex)
 	meta, exist := s.metaStore.FileMetaMap["testFile1"]
 
 	if !exist {
@@ -126,7 +126,7 @@ func print_state(s *RaftSurfstore) {
 
 func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) (*Version, error) {
 	if s.isLeader {
-		if !s.isCrashed {
+		if !s.crashedGetter() {
 			fmt.Printf("%d. Recieved update meta: %v\n", s.id, filemeta)
 			if s.metaStore.FileMetaMap == nil {
 				s.metaStore.FileMetaMap = make(map[string]*FileMetaData)
@@ -152,6 +152,10 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 			var empty *emptypb.Empty
 			//startTime := time.Now()
 			for { // loop until a majority of the servers are not crashed
+				if s.crashedGetter() {
+					return nil, ERR_SERVER_CRASHED
+				}
+
 				succ, err := s.SendHeartbeat(ctx, empty)
 				checkError(err)
 				if succ.Flag {
@@ -165,7 +169,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 			fmt.Printf("%d. RaftServer UpdateFile() finished heartbeat\n", s.id)
 
 			// issue 2-phase commit to followers
-			if !s.isCrashed {
+			if !s.crashedGetter() {
 				for {
 					appendSuccesses := 1
 					for idx, raftServerIp := range s.raftAddrs {
@@ -248,7 +252,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInput) (*AppendEntryOutput, error) {
 	var output = AppendEntryOutput{Term: s.term, Success: true}
 
-	if s.isCrashed {
+	if s.crashedGetter() {
 		output.Success = false
 		//fmt.Printf("%d append entries false 1\n", s.id)
 		return &output, ERR_SERVER_CRASHED
@@ -268,10 +272,10 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 		print_state(s)
 	} else */
 
-	if !s.isCrashed { // Apply commits
+	if !s.crashedGetter() { // Apply commits
 		if input.Term > s.term {
 			s.term = input.Term
-			if s.isLeader {
+			if s.leaderGetter() {
 				s.isLeader = false
 				//fmt.Printf("%d stepping down from the leader for term %d\n", s.id, s.term)
 			}
@@ -283,7 +287,7 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 	print_state(s)
 	fmt.Printf("%d. input.PrevLogIndex: %d\n", s.id, input.PrevLogIndex)
 
-	if len(input.Entries) != 0 && !s.isCrashed {
+	if len(input.Entries) != 0 && !s.crashedGetter() {
 		if input.Term > s.term {
 			s.term = input.Term
 		}
@@ -322,7 +326,7 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 		fmt.Printf("server: %d. Commit index changed: %d\n", s.id, s.commitIndex)
 	}
 
-	if !s.isCrashed {
+	if !s.crashedGetter() {
 		for {
 			if s.commitIndex > s.lastApplied || (s.commitIndex == 0 && s.lastApplied == 0 && len(s.log) == 1) { //|| (len(s.log) == 1 && s.commitIndex == 0 && first_iter) {
 				if s.lastApplied > 0 || s.commitIndex > 0 {
@@ -510,6 +514,24 @@ func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*S
 	}
 
 	return &Success{Flag: flag}, ctx.Err()
+}
+
+func (s *RaftSurfstore) crashedGetter() bool {
+	isCrashed := false
+	s.isCrashedMutex.RLock()
+	isCrashed = s.isCrashed
+	s.isCrashedMutex.RUnlock()
+
+	return isCrashed
+}
+
+func (s *RaftSurfstore) leaderGetter() bool {
+	isLeader := false
+	s.isLeaderMutex.RLock()
+	isLeader = s.isLeader
+	s.isLeaderMutex.RUnlock()
+
+	return isLeader
 }
 
 // ========== DO NOT MODIFY BELOW THIS LINE =====================================
