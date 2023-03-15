@@ -287,6 +287,10 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 	return nil, ERR_NOT_LEADER
 }
 
+func removeFromSlice(slice []*UpdateOperation, s int) []*UpdateOperation {
+	return append(slice[:s], slice[s+1:]...)
+}
+
 // 1. Reply false if term < currentTerm (§5.1)
 // 2. Reply false if log doesn’t contain an entry at prevLogIndex whose term
 // matches prevLogTerm (§5.3)
@@ -353,8 +357,7 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 			output.Success = false
 			//fmt.Printf("%d append entries false 3\n", s.id)
 		} else if int64(len(s.log)-1) >= input.PrevLogIndex && s.log[input.PrevLogIndex].Term != input.PrevLogTerm {
-			output.Success = false
-			//fmt.Printf("%d append entries false 4\n", s.id)
+			s.log = input.Entries
 		} else {
 			for idx := input.PrevLogIndex; idx < int64(len(input.Entries)); idx++ {
 				inputItem := input.Entries[idx]
