@@ -230,6 +230,8 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 			} else { // leader is crashed
 				return nil, ERR_SERVER_CRASHED
 			}
+		} else { // leader is crashed
+			return nil, ERR_SERVER_CRASHED
 		}
 	}
 	return nil, ERR_NOT_LEADER
