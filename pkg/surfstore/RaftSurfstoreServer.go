@@ -220,6 +220,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 			// issue 2-phase commit to followers
 			if !s.crashedGetter() {
 				print_state(s)
+				sent_to := make([]int, len(s.raftAddrs))
 				for {
 					appendSuccesses := 1
 					for idx, raftServerIp := range s.raftAddrs {
@@ -227,7 +228,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 							return nil, ERR_SERVER_CRASHED
 						}
 
-						if raftServerIp == s.raftAddrs[s.id] {
+						if raftServerIp == s.raftAddrs[s.id] || sent_to[idx] == 1 {
 							continue
 						}
 
@@ -261,6 +262,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 								s.matchIndex[idx] = appendEntryResponse.MatchedIndex
 								s.nextIndex[idx] = int64(len(s.log))
 								fmt.Printf("%d. RaftServer UpdateFile() applied appendEntry to %d successfully\n", s.id, idx)
+								sent_to[idx] = 1
 								break
 							} else {
 								if prevLogIndex > 0 {
