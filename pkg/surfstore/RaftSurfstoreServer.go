@@ -397,7 +397,7 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 		} else {
 			for idx := input.PrevLogIndex; idx < int64(len(input.Entries)); idx++ {
 				inputItem := input.Entries[idx]
-				if int64(len(s.log)) <= idx && {
+				if int64(len(s.log)) <= idx {
 					s.log = append(s.log, inputItem)
 					fmt.Printf("server: %d. appending log. New length: %d\n", s.id, len(s.log))
 					output.MatchedIndex = idx
