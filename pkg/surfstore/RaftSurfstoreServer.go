@@ -355,7 +355,7 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 		//		fmt.Printf("Append entries\n")
 	}
 
-	//print_state(s)
+	print_state(s)
 	//fmt.Printf("%d. input.PrevLogIndex: %d\n", s.id, input.PrevLogIndex)
 
 	just_added := false
