@@ -177,7 +177,7 @@ func (s *RaftSurfstore) checkTestCase(succ bool) bool {
 func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) (*Version, error) {
 	if s.isLeader {
 		if !s.crashedGetter() {
-			//fmt.Printf("%d. Recieved update meta: %v\n", s.id, filemeta)
+			fmt.Printf("%d. Recieved update meta: %v\n", s.id, filemeta)
 			if s.metaStore.FileMetaMap == nil {
 				s.metaStore.FileMetaMap = make(map[string]*FileMetaData)
 			}
@@ -397,7 +397,7 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 		} else {
 			for idx := input.PrevLogIndex; idx < int64(len(input.Entries)); idx++ {
 				inputItem := input.Entries[idx]
-				if int64(len(s.log)) <= idx {
+				if int64(len(s.log)) <= idx && {
 					s.log = append(s.log, inputItem)
 					fmt.Printf("server: %d. appending log. New length: %d\n", s.id, len(s.log))
 					output.MatchedIndex = idx
@@ -485,7 +485,7 @@ func (s *RaftSurfstore) SetLeader(ctx context.Context, empty *emptypb.Empty) (*S
 }
 
 func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*Success, error) {
-	//fmt.Printf("%d. Send heartbeat.\n", s.id)
+	fmt.Printf("%d. Send heartbeat.\n", s.id)
 	//print_state(s)
 	//var appendEntryInput = AppendEntryInput{Term: s.term, Entries: make([]*UpdateOperation, 0)}
 
