@@ -207,6 +207,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 					break
 				}
 				if len(s.raftAddrs) == 5 && len(s.log) == 1 && len(s.blockAddrs) == 1 && !succ {
+					fmt.Printf("Testcase break\n")
 					break
 				}
 				/*timePassed := time.Since(startTime)
@@ -255,7 +256,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 								appendSuccesses++
 								s.matchIndex[idx] = appendEntryResponse.MatchedIndex
 								s.nextIndex[idx] = int64(len(s.log))
-								//fmt.Printf("%d. RaftServer UpdateFile() applied appendEntry to %d successfully\n", s.id, idx)
+								fmt.Printf("%d. RaftServer UpdateFile() applied appendEntry to %d successfully\n", s.id, idx)
 								break
 							} else {
 								if prevLogIndex > 0 {
@@ -271,7 +272,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 
 					// Commit update if majority of servers agreed
 					if appendSuccesses >= int(math.Ceil(float64(len(s.raftAddrs))/2.0)) {
-						//fmt.Printf("%d. Apply commit to log. appendSuccesses: %d\n", s.id, appendSuccesses)
+						fmt.Printf("%d. Apply commit to log. appendSuccesses: %d\n", s.id, appendSuccesses)
 						// log update in local log
 						s.metaStore.FileMetaMap[filemeta.Filename] = filemeta
 						version.Version = filemeta.Version
