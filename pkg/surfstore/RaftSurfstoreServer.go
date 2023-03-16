@@ -355,6 +355,8 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 	//print_state(s)
 	//fmt.Printf("%d. input.PrevLogIndex: %d\n", s.id, input.PrevLogIndex)
 
+	just_added := false
+
 	if len(input.Entries) != 0 && !s.crashedGetter() {
 		if input.Term > s.term {
 			s.term = input.Term
@@ -375,12 +377,13 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 				inputItem := input.Entries[idx]
 				if int64(len(s.log)) <= idx {
 					s.log = append(s.log, inputItem)
-					//fmt.Printf("server: %d. appending log. New length: %d\n", s.id, len(s.log))
+					fmt.Printf("server: %d. appending log. New length: %d\n", s.id, len(s.log))
 					output.MatchedIndex = idx
+					just_added = true
 				} else if s.log[idx] != inputItem {
 					s.log[idx] = inputItem
 					output.MatchedIndex = idx
-					//fmt.Printf("server: %d. Changed log. New length: %d\n", s.id, len(s.log))
+					fmt.Printf("server: %d. Changed log. New length: %d\n", s.id, len(s.log))
 				}
 			}
 		}
@@ -397,13 +400,13 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 
 	if !s.crashedGetter() {
 		for {
-			if s.commitIndex > s.lastApplied || (s.commitIndex == 0 && s.lastApplied == 0 && len(s.log) == 1) { //|| (len(s.log) == 1 && s.commitIndex == 0 && first_iter) {
+			if s.commitIndex > s.lastApplied || (s.commitIndex == 0 && s.lastApplied == 0 && len(s.log) == 1 && !just_added) { //|| (len(s.log) == 1 && s.commitIndex == 0 && first_iter) {
 				if s.lastApplied > 0 || s.commitIndex > 0 {
 					s.lastApplied = s.lastApplied + 1
 				}
-				//fmt.Printf("%d. Applied commit to log. s.commitIndex: %d. s.lastApplied: %d. len(s.log): %d\n", s.id, s.commitIndex, s.lastApplied, len(s.log))
+				fmt.Printf("%d. Applied commit to log. s.commitIndex: %d. s.lastApplied: %d. len(s.log): %d\n", s.id, s.commitIndex, s.lastApplied, len(s.log))
 				filemeta := s.log[s.lastApplied].FileMetaData
-				//fmt.Printf("%d. Log commit (%d) meta: %v\n", s.id, s.lastApplied, filemeta)
+				fmt.Printf("%d. Log commit (%d) meta: %v\n", s.id, s.lastApplied, filemeta)
 				s.metaStore.FileMetaMap[filemeta.Filename] = filemeta
 				output.MatchedIndex = s.lastApplied
 
