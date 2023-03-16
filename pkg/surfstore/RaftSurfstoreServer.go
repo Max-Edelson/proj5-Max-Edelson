@@ -219,10 +219,10 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 
 			// issue 2-phase commit to followers
 			if !s.crashedGetter() {
+				print_state(s)
 				for {
 					appendSuccesses := 1
 					for idx, raftServerIp := range s.raftAddrs {
-						print_state(s)
 						if raftServerIp == s.raftAddrs[s.id] {
 							continue
 						}
@@ -244,6 +244,9 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 						//print_state(s)
 
 						for {
+							if s.crashedGetter() {
+								return nil, ERR_SERVER_CRASHED
+							}
 							var appendEntryInput = AppendEntryInput{Term: s.term, PrevLogIndex: prevLogIndex, PrevLogTerm: prevLogTerm,
 								Entries: s.log, LeaderCommit: s.commitIndex}
 
