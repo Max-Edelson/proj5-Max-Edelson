@@ -304,7 +304,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 					} // otherwise restart and try to get a majority again
 
 					if testCase {
-						nil, ERR_SERVER_CRASHED
+						return nil, ERR_SERVER_CRASHED
 					}
 				}
 			} else { // leader is crashed
