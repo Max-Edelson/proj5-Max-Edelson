@@ -223,6 +223,10 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 				for {
 					appendSuccesses := 1
 					for idx, raftServerIp := range s.raftAddrs {
+						if s.crashedGetter() {
+							return nil, ERR_SERVER_CRASHED
+						}
+
 						if raftServerIp == s.raftAddrs[s.id] {
 							continue
 						}
@@ -244,9 +248,6 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 						//print_state(s)
 
 						for {
-							if s.crashedGetter() {
-								return nil, ERR_SERVER_CRASHED
-							}
 							var appendEntryInput = AppendEntryInput{Term: s.term, PrevLogIndex: prevLogIndex, PrevLogTerm: prevLogTerm,
 								Entries: s.log, LeaderCommit: s.commitIndex}
 
