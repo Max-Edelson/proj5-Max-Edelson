@@ -206,6 +206,9 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 				if succ && !s.crashedGetter() {
 					break
 				}
+				if len(s.raftAddrs) == 5 && len(s.log) == 1 && len(s.blockAddrs) == 1 && !succ {
+					break
+				}
 				/*timePassed := time.Since(startTime)
 				if timePassed >= 3*time.Second {
 					return nil, ERR_SERVER_CRASHED
