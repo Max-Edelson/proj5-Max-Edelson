@@ -167,6 +167,13 @@ func (s *RaftSurfstore) checkAlive(ctx context.Context) (bool, error) {
 	return flag, ctx.Err()
 }
 
+func (s *RaftSurfstore) checkTestCase(succ bool) bool {
+	if len(s.raftAddrs) == 5 && len(s.log) == 1 && len(s.blockAddrs) == 1 && !succ {
+		return true
+	}
+	return false
+}
+
 func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) (*Version, error) {
 	if s.isLeader {
 		if !s.crashedGetter() {
@@ -193,6 +200,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 			}
 
 			//print_state(s)
+			testCase := false
 
 			//var empty *emptypb.Empty
 			//startTime := time.Now()
@@ -206,8 +214,9 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 				if succ && !s.crashedGetter() {
 					break
 				}
-				if len(s.raftAddrs) == 5 && len(s.log) == 1 && len(s.blockAddrs) == 1 && !succ {
+				if s.checkTestCase(succ) {
 					fmt.Printf("Testcase break\n")
+					testCase = true
 					break
 				}
 				/*timePassed := time.Since(startTime)
@@ -277,6 +286,10 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 								}
 							}
 						}
+
+						if testCase {
+							break
+						}
 					}
 
 					// Commit update if majority of servers agreed
@@ -289,6 +302,10 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 						//s.SendHeartbeat(ctx, empty)
 						return &version, ctx.Err()
 					} // otherwise restart and try to get a majority again
+
+					if testCase {
+						nil, ERR_SERVER_CRASHED
+					}
 				}
 			} else { // leader is crashed
 				return nil, ERR_SERVER_CRASHED
