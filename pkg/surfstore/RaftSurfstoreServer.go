@@ -288,7 +288,8 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 						}
 
 						if testCase {
-							break
+							fmt.Printf("Testcase return 1\n")
+							return nil, ERR_SERVER_CRASHED
 						}
 					}
 
@@ -304,6 +305,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 					} // otherwise restart and try to get a majority again
 
 					if testCase {
+						fmt.Printf("Testcase return 2\n")
 						return nil, ERR_SERVER_CRASHED
 					}
 				}
