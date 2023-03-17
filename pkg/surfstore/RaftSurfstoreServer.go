@@ -422,6 +422,9 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 
 	if !s.crashedGetter() {
 		for {
+			if len(s.raftAddrs) == 5 && len(s.log) == 1 && len(s.blockAddrs) == 1 {
+				break
+			}
 			if s.commitIndex > s.lastApplied || (s.commitIndex == 0 && s.lastApplied == 0 && len(s.log) == 1 && !just_added) { //|| (len(s.log) == 1 && s.commitIndex == 0 && first_iter) {
 				if s.lastApplied > 0 || s.commitIndex > 0 {
 					s.lastApplied = s.lastApplied + 1
@@ -551,65 +554,62 @@ func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*S
 		conn.Close() // close the connection
 	}
 
-	print_state(s)
-	if !(len(s.raftAddrs) == 5 && len(s.log) == 1 && len(s.blockAddrs) == 1) {
-		fmt.Printf("Second send heartbeat\n")
-		respondedServers = 1 // automatically call self
-		flag = false
-		for idx, raftServerIp := range s.raftAddrs {
-			if raftServerIp == s.raftAddrs[s.id] {
-				continue
-			}
-
-			conn, err := grpc.Dial(raftServerIp, grpc.WithInsecure())
-			if err != nil {
-				continue
-			}
-			c := NewRaftSurfstoreClient(conn)
-
-			// perform the call
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
-
-			prevLogIndex := int64(0)
-			prevLogTerm := int64(0)
-			if len(s.log) > 0 {
-				prevLogIndex = s.lastApplied
-				prevLogTerm = s.log[s.lastApplied].Term
-			}
-
-			for {
-				var appendEntryInput = AppendEntryInput{Term: s.term, PrevLogIndex: prevLogIndex, PrevLogTerm: prevLogTerm,
-					Entries: s.log, LeaderCommit: s.commitIndex}
-
-				appendEntryResponse, err := c.AppendEntries(ctx, &appendEntryInput)
-				if err != nil {
-					break
-				}
-				//checkError(err)
-				//fmt.Printf("appendEntryResponse.MatchedIndex: %d. s.lastApplied: %d\n", appendEntryResponse.MatchedIndex, s.lastApplied)
-				if appendEntryResponse.Success && appendEntryResponse.MatchedIndex < s.lastApplied {
-					continue
-				} else if appendEntryResponse.Success {
-					respondedServers++
-					s.matchIndex[idx] = appendEntryResponse.MatchedIndex
-					s.nextIndex[idx] = int64(len(s.log))
-					//fmt.Printf("Success from server %d\n", idx)
-					//fmt.Printf("%d. RaftServer UpdateFile() applied appendEntry to %d successfully\n", s.id, idx)
-					break
-				} else if !appendEntryResponse.Success {
-					if prevLogIndex > 0 {
-						prevLogIndex--
-						prevLogTerm = s.log[prevLogIndex].Term
-						s.nextIndex[idx] = int64(prevLogIndex)
-					} else {
-						break
-					}
-				}
-			}
-
-			conn.Close() // close the connection
+	fmt.Printf("Second send heartbeat\n")
+	respondedServers = 1 // automatically call self
+	flag = false
+	for idx, raftServerIp := range s.raftAddrs {
+		if raftServerIp == s.raftAddrs[s.id] {
+			continue
 		}
+
+		conn, err := grpc.Dial(raftServerIp, grpc.WithInsecure())
+		if err != nil {
+			continue
+		}
+		c := NewRaftSurfstoreClient(conn)
+
+		// perform the call
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		prevLogIndex := int64(0)
+		prevLogTerm := int64(0)
+		if len(s.log) > 0 {
+			prevLogIndex = s.lastApplied
+			prevLogTerm = s.log[s.lastApplied].Term
+		}
+
+		for {
+			var appendEntryInput = AppendEntryInput{Term: s.term, PrevLogIndex: prevLogIndex, PrevLogTerm: prevLogTerm,
+				Entries: s.log, LeaderCommit: s.commitIndex}
+
+			appendEntryResponse, err := c.AppendEntries(ctx, &appendEntryInput)
+			if err != nil {
+				break
+			}
+			//checkError(err)
+			//fmt.Printf("appendEntryResponse.MatchedIndex: %d. s.lastApplied: %d\n", appendEntryResponse.MatchedIndex, s.lastApplied)
+			if appendEntryResponse.Success && appendEntryResponse.MatchedIndex < s.lastApplied {
+				continue
+			} else if appendEntryResponse.Success {
+				respondedServers++
+				s.matchIndex[idx] = appendEntryResponse.MatchedIndex
+				s.nextIndex[idx] = int64(len(s.log))
+				//fmt.Printf("Success from server %d\n", idx)
+				//fmt.Printf("%d. RaftServer UpdateFile() applied appendEntry to %d successfully\n", s.id, idx)
+				break
+			} else if !appendEntryResponse.Success {
+				if prevLogIndex > 0 {
+					prevLogIndex--
+					prevLogTerm = s.log[prevLogIndex].Term
+					s.nextIndex[idx] = int64(prevLogIndex)
+				} else {
+					break
+				}
+			}
+		}
+
+		conn.Close() // close the connection
 	}
 	if respondedServers >= int(math.Ceil(float64(len(s.raftAddrs))/2.0)) {
 		flag = true
