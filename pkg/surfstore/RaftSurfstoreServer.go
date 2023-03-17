@@ -551,6 +551,7 @@ func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*S
 		conn.Close() // close the connection
 	}
 
+	print_state(s)
 	if !(len(s.raftAddrs) == 5 && len(s.log) == 1 && len(s.blockAddrs) == 1) {
 		fmt.Printf("Second send heartbeat\n")
 		respondedServers = 1 // automatically call self
