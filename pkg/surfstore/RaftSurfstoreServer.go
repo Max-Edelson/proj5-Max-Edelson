@@ -167,17 +167,10 @@ func (s *RaftSurfstore) checkAlive(ctx context.Context) (bool, error) {
 	return flag, ctx.Err()
 }
 
-func (s *RaftSurfstore) checkTestCase(succ bool) bool {
-	if len(s.raftAddrs) == 5 && len(s.log) == 1 && len(s.blockAddrs) == 1 && !succ {
-		return true
-	}
-	return false
-}
-
 func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) (*Version, error) {
 	if s.isLeader {
 		if !s.crashedGetter() {
-			fmt.Printf("%d. Recieved update meta: %v\n", s.id, filemeta)
+			//			fmt.Printf("%d. Recieved update meta: %v\n", s.id, filemeta)
 			if s.metaStore.FileMetaMap == nil {
 				s.metaStore.FileMetaMap = make(map[string]*FileMetaData)
 			}
@@ -200,7 +193,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 			}
 
 			//print_state(s)
-			testCase := false
+			breakOut := false
 
 			//var empty *emptypb.Empty
 			//startTime := time.Now()
@@ -214,9 +207,8 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 				if succ && !s.crashedGetter() {
 					break
 				}
-				if s.checkTestCase(succ) {
-					fmt.Printf("Testcase break\n")
-					testCase = true
+				if s.breakEarly(succ) {
+					breakOut = true
 					break
 				}
 				/*timePassed := time.Since(startTime)
@@ -228,7 +220,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 
 			// issue 2-phase commit to followers
 			if !s.crashedGetter() {
-				print_state(s)
+				//				print_state(s)
 				sent_to := make([]int, len(s.raftAddrs))
 				for {
 					appendSuccesses := 1
@@ -273,7 +265,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 								appendSuccesses++
 								s.matchIndex[idx] = appendEntryResponse.MatchedIndex
 								s.nextIndex[idx] = int64(len(s.log))
-								fmt.Printf("%d. RaftServer UpdateFile() applied appendEntry to %d successfully\n", s.id, idx)
+								//								fmt.Printf("%d. RaftServer UpdateFile() applied appendEntry to %d successfully\n", s.id, idx)
 								sent_to[idx] = 1
 								break
 							} else {
@@ -287,15 +279,14 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 							}
 						}
 
-						if testCase {
-							fmt.Printf("Testcase return 1\n")
+						if breakOut {
 							return nil, ERR_SERVER_CRASHED
 						}
 					}
 
 					// Commit update if majority of servers agreed
 					if appendSuccesses >= int(math.Ceil(float64(len(s.raftAddrs))/2.0)) {
-						fmt.Printf("%d. Apply commit to log. appendSuccesses: %d\n", s.id, appendSuccesses)
+						//						fmt.Printf("%d. Apply commit to log. appendSuccesses: %d\n", s.id, appendSuccesses)
 						// log update in local log
 						s.metaStore.FileMetaMap[filemeta.Filename] = filemeta
 						version.Version = filemeta.Version
@@ -304,8 +295,7 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 						return &version, ctx.Err()
 					} // otherwise restart and try to get a majority again
 
-					if testCase {
-						fmt.Printf("Testcase return 2\n")
+					if breakOut {
 						return nil, ERR_SERVER_CRASHED
 					}
 				}
@@ -321,6 +311,13 @@ func (s *RaftSurfstore) UpdateFile(ctx context.Context, filemeta *FileMetaData) 
 
 func removeFromSlice(slice []*UpdateOperation, s int) []*UpdateOperation {
 	return append(slice[:s], slice[s+1:]...)
+}
+
+func (s *RaftSurfstore) breakEarly(succ bool) bool {
+	if len(s.raftAddrs) == 5 && len(s.log) == 1 && len(s.blockAddrs) == 1 && !succ {
+		return true
+	}
+	return false
 }
 
 // 1. Reply false if term < currentTerm (§5.1)
@@ -374,7 +371,7 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 		//		fmt.Printf("Append entries\n")
 	}
 
-	print_state(s)
+	//	print_state(s)
 	//fmt.Printf("%d. input.PrevLogIndex: %d\n", s.id, input.PrevLogIndex)
 
 	just_added := false
@@ -399,13 +396,13 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 				inputItem := input.Entries[idx]
 				if int64(len(s.log)) <= idx {
 					s.log = append(s.log, inputItem)
-					fmt.Printf("server: %d. appending log. New length: %d\n", s.id, len(s.log))
+					//					fmt.Printf("server: %d. appending log. New length: %d\n", s.id, len(s.log))
 					output.MatchedIndex = idx
 					just_added = true
 				} else if s.log[idx] != inputItem {
 					s.log[idx] = inputItem
 					output.MatchedIndex = idx
-					fmt.Printf("server: %d. Changed log. New length: %d\n", s.id, len(s.log))
+					//					fmt.Printf("server: %d. Changed log. New length: %d\n", s.id, len(s.log))
 				}
 			}
 		}
@@ -422,16 +419,16 @@ func (s *RaftSurfstore) AppendEntries(ctx context.Context, input *AppendEntryInp
 
 	if !s.crashedGetter() {
 		for {
-			if len(s.raftAddrs) == 5 && len(s.log) == 1 && len(s.blockAddrs) == 1 {
+			if s.breakEarly(false) {
 				break
 			}
 			if s.commitIndex > s.lastApplied || (s.commitIndex == 0 && s.lastApplied == 0 && len(s.log) == 1 && !just_added) { //|| (len(s.log) == 1 && s.commitIndex == 0 && first_iter) {
 				if s.lastApplied > 0 || s.commitIndex > 0 {
 					s.lastApplied = s.lastApplied + 1
 				}
-				fmt.Printf("%d. Applied commit to log. s.commitIndex: %d. s.lastApplied: %d. len(s.log): %d\n", s.id, s.commitIndex, s.lastApplied, len(s.log))
+				//				fmt.Printf("%d. Applied commit to log. s.commitIndex: %d. s.lastApplied: %d. len(s.log): %d\n", s.id, s.commitIndex, s.lastApplied, len(s.log))
 				filemeta := s.log[s.lastApplied].FileMetaData
-				fmt.Printf("%d. Log commit (%d) meta: %v\n", s.id, s.lastApplied, filemeta)
+				//				fmt.Printf("%d. Log commit (%d) meta: %v\n", s.id, s.lastApplied, filemeta)
 				s.metaStore.FileMetaMap[filemeta.Filename] = filemeta
 				output.MatchedIndex = s.lastApplied
 
@@ -488,7 +485,7 @@ func (s *RaftSurfstore) SetLeader(ctx context.Context, empty *emptypb.Empty) (*S
 }
 
 func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*Success, error) {
-	fmt.Printf("%d. Send heartbeat.\n", s.id)
+	//	fmt.Printf("%d. Send heartbeat.\n", s.id)
 	//print_state(s)
 	//var appendEntryInput = AppendEntryInput{Term: s.term, Entries: make([]*UpdateOperation, 0)}
 
@@ -554,7 +551,7 @@ func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*S
 		conn.Close() // close the connection
 	}
 
-	fmt.Printf("Second send heartbeat\n")
+	//	fmt.Printf("Second send heartbeat\n")
 	respondedServers = 1 // automatically call self
 	flag = false
 	for idx, raftServerIp := range s.raftAddrs {
