@@ -551,7 +551,7 @@ func (s *RaftSurfstore) SendHeartbeat(ctx context.Context, _ *emptypb.Empty) (*S
 		conn.Close() // close the connection
 	}
 
-	if !s.checkTestCase(false) {
+	if s.checkTestCase(false) {
 		fmt.Printf("Second send heartbeat\n")
 		respondedServers = 1 // automatically call self
 		flag = false
